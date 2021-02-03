@@ -139,9 +139,9 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
             ICON(ICON:Clarion),FONT('Segoe UI',10,,FONT:regular),RESIZE
         SHEET,AT(3,3,470,197),USE(?Sheet1)
             TAB(' ClarionProperties.Xml '),USE(?TAB:Clean)
-                BOX,AT(6,17,460,10),USE(?Box_Clean),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
+                BOX,AT(9,17,457,10),USE(?Box_Clean),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
                 PROMPT('This tool Shrinks the ClarionProperties.xml <<FindPatterns /> that the Editor Find Dialog grows ' & |
-                        'forever which slows Find opening.'),AT(10,17),USE(?WhatsCleanFor),TRN
+                        'forever which slows Find opening.'),AT(13,17),USE(?WhatsCleanFor),TRN
                 LIST,AT(10,55,456,140),USE(?List:CleanQ),VSCROLL,FROM(CleanQ),FORMAT('[75L(2)|FM~<13,10>From Tab~@s8@/75' & |
                         'R(2)|_FM~Folder~@s255@]|[24R(2)|M~Cnt~C(0)@n4@#4#34R(2)|M~Bytes~C(0)@n7@/24R(2)|_M@n4b@Q''Find ' & |
                         'Count After''34R(2)|_M@n7b@]|~Find Patterns<13,10>Before/After~[24R(2)|M~Cnt~C(0)@n4@#9#34R(2)|' & |
@@ -174,17 +174,17 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                 END
             END
             TAB(' 1. AppData SoftVelocity '),USE(?TAB:AppData)
-                BOX,AT(6,18,460,10),USE(?Box_AppData),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
+                BOX,AT(9,18,457,10),USE(?Box_AppData),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
                 PROMPT('AppData Roaming is the default location the Clarion IDE saves ClarionProperties.Xml. The /Config' & |
-                        'Dir [=path] overrides the location.'),AT(9,18),USE(?AppDataSVpath:FYI),TRN
-                ENTRY(@s255),AT(7,29,458,10),USE(Glo:AppDataSVpath),SKIP,TRN,FONT('Consolas'),READONLY
+                        'Dir [=path] overrides the location.'),AT(12,18),USE(?AppDataSVpath:FYI),TRN
+                ENTRY(@s255),AT(10,29,458,10),USE(Glo:AppDataSVpath),SKIP,TRN,FONT('Consolas'),READONLY
                 LIST,AT(9,41,457,153),USE(?List:AppDataSvQ),VSCROLL,FROM(AppDataSvQ),FORMAT('32L(2)|FM~Folder~C(0)@s255@80L' & |
                         '(2)|M~Clarion Properties~@s255@34R(2)|M~Date~C(0)@d1b@34R(2)|M~Time~C(0)@T3b@40R(2)|M~Size~C(0)' & |
                         '@n11b@257L(2)P~Path  -  Double Click to Open~@s255@Z(1)'),ALRT(DeleteKey)
             END
             TAB(' 2. CW Bin \ Settings '),USE(?TAB:Installs)
-                BOX,AT(7,18,461,10),USE(?Box_Reg),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
-                PROMPT('Clarion Installs found in Registry:  HKLM\SOFTWARE\SoftVelocity\Clarion'),AT(9,18),USE(?Regsitry:FYI), |
+                BOX,AT(9,18,459,10),USE(?Box_Reg),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
+                PROMPT('Clarion Installs found in Registry:  HKLM\SOFTWARE\SoftVelocity\Clarion'),AT(12,18),USE(?Regsitry:FYI), |
                         TRN
                 LIST,AT(9,31,458,58),USE(?LIST:ClarionInstallQ),VSCROLL,FROM(ClarionInstallQ),FORMAT('33R(7)|M~Verison~C' & |
                         '(0)@n4.1@70L(2)|M~Clarion  (SubKey)~@s16@120L(2)~Root Path  (HKLM,SOFTWARE\SoftVelocity\Clarion' & |
@@ -200,10 +200,10 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                         'C(0)@n11b@257L(2)P~Root Path or Settings Path  -  Double Click to Open~@s255@'),ALRT(DeleteKey)
             END
             TAB(' 3. /ConfigDir .Txt '),USE(?TAB:Other)
-                CHECK('Just This'),AT(9,20),USE(JustDoConfigDirs),SKIP,TRN,FONT(,9),TIP('Only Process ConfigDir files. O' & |
+                CHECK('Just This'),AT(10,20),USE(JustDoConfigDirs),SKIP,TRN,FONT(,9),TIP('Only Process ConfigDir files. O' & |
                         'mit AppData and Bin Settings.<13><10>Good for testing specific files.<13,10>Put JUST on first l' & |
                         'ine of ConfigDir.TXT to check this box.')
-                CHECK('Edit This'),AT(9,33),USE(ConfigTextEditThis),SKIP,TRN,FONT(,9),TIP('Allow Editing ConfigDir.TXT')
+                CHECK('Edit This'),AT(10,33),USE(ConfigTextEditThis),SKIP,TRN,FONT(,9),TIP('Allow Editing ConfigDir.TXT')
                 BUTTON('Re-Parse'),AT(9,42,42,11),USE(?ConfigDirTxtReParseBtn),DISABLE,SKIP,FONT(,9),TIP('Re-Parse the e' & |
                         'ditted ConfigDir.Txt')
                 BUTTON('Clear Text'),AT(9,56,42,11),USE(?ConfigDirTxtClearTextBtn),DISABLE,SKIP,FONT(,9),TIP('Clear Conf' & |
@@ -226,9 +226,9 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                         '0)@n11b@257L(2)P~Path  -  Double Click to Open~@s255@'),ALRT(DeleteKey)
             END
             TAB('  About  '),USE(?TAB:About)
-                BOX,AT(7,18,461,10),USE(?Box_About),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
+                BOX,AT(9,18,459,10),USE(?Box_About),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
                 PROMPT('Find Clean written by Carl Barnes. Inspired by Bruce Johnson. StringTheory code by Geoff Robinson'), |
-                        AT(9,18),USE(?About:FYI),TRN
+                        AT(12,18),USE(?About:FYI),TRN
                 CHECK(' Stop Showing About'),AT(383,18),USE(NoShowAbout),SKIP,TRN,FONT(,9),TIP('Check box to not show about')
                 TEXT,AT(10,31,457,164),USE(?AboutTEXT),VSCROLL,FONT('Calibri',11),READONLY
             END
