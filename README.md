@@ -1,6 +1,10 @@
 # FindCleanCwIDE 
 
-ClarionProperties.XML contains the Find Dialog search history in /<FindPatterns value=""/>. This grows very large and needs to be shrunk. More to come...
+ClarionProperties.XML contains the Find Dialog search history in /<FindPatterns value=""/>.
+ This grows very large and needs to be shrunk.
+ Reads the About tab for more info. Here you set your Max and Min counts then press Query to View.
+ If it looks good press the Shrink button. The Clarion IDE must be closed or the changes will be overwritten.
+ More to come...
 
 ![tab cln](images/tabClean.png)
 
@@ -8,11 +12,13 @@ ClarionProperties.XML contains the Find Dialog search history in /<FindPatterns 
 
 ![tab BIN](images/tabBIN.png)
 
+The Config tab is where you can list folders you use with the  Clarion.exe /ConfigDir= switch. 
+ In the below example I am using it to load test files from other folders.
 ![tab Cfg](images/tabConfig.png)
 
 ## Big Bang Class for StringTheory
 
-This contains an example of using my Big Bang class to show StringTheory call results in a Window. This lets you visually confirm your code is getting the desired results.
+This contains an example of using my Big Bang class to show StringTheory call result string or queue in a Window. This lets you visually confirm your code is getting the desired results.
 
 The FindCleanCwIDE_ST.clw module contains all the ST code. Look in there for calls to BangCls.
  To see them at all the BangView variable must be (1). You can stop the display of the windows by checking "No Bang".
