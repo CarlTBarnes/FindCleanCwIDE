@@ -1,0 +1,14 @@
+; or ! makes a Comment line 
+
+; Enter one per line each of for your /ConfigDir=Path folders
+; For Installs not in the Registry you run with "/ConfigDir" list those e.g. x:\Clarion10.12463\Bin\Settings
+
+; End the Path with "\*" to load all sub folders containing: ClarionProperties.xml
+; So if you organized all your Config Folders under one parent folder this makes it easy find them with 1 line
+; You can test this with your C:\Users\YourUser\AppData\Roaming\SoftVelocity\Clarion\*
+
+; Can use DOS to find all sub folders with command: DIR /S /B ClarionProperties.xml > ConfigDIR.txt
+
+; Limit testing to just Config tab by checking "Just This" and only these folders are scanned. 
+; Put "JUST" on first line to check "Just This". 
+; Put "END" on a line to stop loading the Config file.
