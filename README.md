@@ -6,6 +6,8 @@ ClarionProperties.XML contains the Find Dialog search history in /<FindPatterns 
  If it looks good press the Shrink button. The Clarion IDE must be closed or the changes will be overwritten.
  More to come...
 
+See ClarionHub thread: [FIND popup dialog window appears slowly in IDE](https://clarionhub.com/t/find-popup-dialog-window-appears-slowly-in-ide/3764)
+
 ![tab cln](images/tabClean.png)
 
 ![tab App](images/tabAppData.png)
