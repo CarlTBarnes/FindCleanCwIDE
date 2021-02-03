@@ -1,12 +1,14 @@
 # FindCleanCwIDE 
 
-ClarionProperties.XML contains the Find Dialog search history in /<FindPatterns value=""/>.
- This grows very large and needs to be shrunk.
- Reads the About tab for more info. Here you set your Max and Min counts then press Query to View.
- If it looks good press the Shrink button. The Clarion IDE must be closed or the changes will be overwritten.
+ClarionProperties.XML contains the Find Dialog search history in `<FindPatterns value=""/>`.
+ This can grow very large and needs to be shrunk or the dialog gets very slow.
+ Read the About tab for more info. Also see ClarionHub thread: [FIND popup dialog window appears slowly in IDE](https://clarionhub.com/t/find-popup-dialog-window-appears-slowly-in-ide/3764)
+
+Below is the main window where you set your Max and Min counts then press Query to View the count of Find and Replace patterns
+ in the XML file.
+ If it looks good press the Shrink button. The Clarion IDE must be closed.
  More to come...
 
-See ClarionHub thread: [FIND popup dialog window appears slowly in IDE](https://clarionhub.com/t/find-popup-dialog-window-appears-slowly-in-ide/3764)
 
 ![tab cln](images/tabClean.png)
 
