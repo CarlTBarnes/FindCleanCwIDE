@@ -39,20 +39,24 @@ In the below screen capture you see the call to st.FindMatchPosition() then
 
 https://github.com/CarlTBarnes/StringTheory-LoadFile-Split-Viewer
 
+
 ## Window Preview Class
 
-Window Preview class is accessed the "secret" flat button in top left corner, just hover.
- It opens a widow showing all fields on the Window.
+To show the features of my Window Preview class I added to Find Clean.
+ It is accessed with the "secret" flat button in top left corner, just hover up there.
+ It opens a new widow showing all controls on the Window in a List.
  You can examine PROP's of Controls, Window and SYSTEM. You can resize and restyle controls.
  For a LIST you can view the Format or all the PROPLIST for one column. You can view Styles. You can see the From Queue design and records. 
  You can "Re-Format" the LIST i.e. change the FORMAT string, e.g. to resize columns.
- Just click the secret top-left button and the look at everything.
+ 
+Don't think too hard about it, just click the secret top-left button and then look at everything, click every button and double on every row.
  All this from 3 lines of code to Include, Declare and Init() my WndPreview class. 
 
 ![Prv](images/wndPreview.png)
 
-This is called the "Resizer" but it allows changing many other properties including Font and Colors.
- Here I am resizing the List by setting the number of Items so it has no partial rows. 5 items works out to a height of 118.
+This is called the "Resizer" but it also allows changing many other properties,like Font and Colors.
+ Here I am resizing the List by setting the number of Items so it has no partial rows. I also bumped up the line height to 9.
+  So 5 items and 9 line height works out to a List height of 118. This is done on the live window so is perfect. 
  
 ![Prv](images/wndPrvResize.png)
 
