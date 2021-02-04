@@ -6,7 +6,9 @@
     INCLUDE('BigBangTheory.inc'),ONCE  !From https://github.com/CarlTBarnes/StringTheory-LoadFile-Split-Viewer
                                        !A way to view the ST Object to visually check what your ST code is doing
 BangView    SHORT(0)                   !Set to (1) to show Bang windows to help debug
-BangCls     BigBangTheory              !It add clutter to the code but allows visually checking
+BangCls     CLASS(BigBangTheory)       !It adds clutter to the code but allows visually checking
+PatternView    PROCEDURE(StringTheory pST, Long pStart, Long pEnd, STRING pDelim,  STRING CapMsg)
+            END
     MAP
 ST_CleanClaPropXmlFile Procedure(STRING pClaPropXmlFN, BYTE pQuery, *ClnStatsType ClnStats, *STRING OutMsg ),BOOL
 ST_CleanXmlFindPattern Procedure(StringTheory st, STRING ltPatternsElement, *IOStatsType IOStats, *STRING OutMsg ),BOOL
@@ -76,12 +78,11 @@ st          StringTheory
 !====================================================================
 
 ST_CleanXmlFindPattern Procedure(StringTheory st, STRING ltPatternsElement, *IOStatsType IOStats, *STRING OutMsg )!,BOOL
-lDelim  String('<0C3h,0BFh>') 
+sDelim  String('<0C3h,0BFh>') 
 lStart  Long         !Start of Patterns 1 byte after: Value="
 lEnd    Long         !End of Patterns 1 byte before:         " />
-lRemove Long         !Start of Removed Patterns > Min to Keep - to lEnd
-lBytesRemoved Long
-bangSt  StringTheory
+lRemoveStart  Long   !Start of Removed Patterns > Min to Keep - to lEnd
+lRemoveLength Long   !RemoveFrom passed Length not Slice
   CODE
   CLEAR(IOStats) 
   st.findBetweenPosition(clip(ltPatternsElement) &'<32>','>', lStart, lEnd, ,false) !,,false=>CaseSens,Incluse <>
@@ -89,44 +90,50 @@ bangSt  StringTheory
     OutMsg='Did not find "' & ltPatternsElement &'"  '&OutMsg
     RETURN false
   END
-?    IF BangView THEN BangCls.StringView(St.Slice(lStart,lEnd),'['& lStart &' : '& lEnd &'] findBetweenPosition ' & ltPatternsElement ).
+?    IF BangView THEN BangCls.SliceView(St,lStart,lEnd,'findBetweenPosition ' & ltPatternsElement ).
 
   st.FindMatchPosition(' value *= *".*"',lStart,lEnd)  !Find value="xxx" inside: <Element >
   IF lStart <= 0 OR lStart > lEnd
     OutMsg='No value= in "' & ltPatternsElement & '"  '&OutMsg
     RETURN false
   END
-?    IF BangView THEN BangCls.StringView(St.Slice(lStart,lEnd),'['& lStart &' : '& lEnd &'] FindMatchPosition value=".*"' ).
+?    IF BangView THEN BangCls.SliceView(St,lStart,lEnd,'FindMatchPosition value=".*"' ).
 
   lStart = st.findchar('"',lStart) + 1  !Find first " in: value="xxx" >    then +1 so after it
   lEnd -= 1                             !lEnd was last " found by FindMatchPosition() then -1 so before it
   IF lStart > lEnd THEN                 !must have been value=""  so zero items
     RETURN false
   END
-?    IF BangView THEN BangCls.StringView(St.Slice(lStart,lEnd),'['& lStart &' : '& lEnd &'] findChar "' ).
-?    IF BangView THEN bangSt.SetValue(St.Slice(lStart,lEnd)) ; bangSt.Split(lDelim) ; BangCls.LinesViewInList(bangSt,'Split ['& lStart &' : '& lEnd &'] '& ltPatternsElement).
-
+?    IF BangView THEN BangCls.SliceView(St,lStart,lEnd,'findChar "' ).
+?    IF BangView THEN BangCls.PatternView(St,lStart,lEnd,sDelim,ltPatternsElement & '> Before Shrink').
   IOStats.BytesIN = lEnd - lStart + 1                
-  IOStats.CntIN = st.count(lDelim,1,lStart,lEnd) + 1 
+  IOStats.CntIN = st.count(sDelim,1,lStart,lEnd) + 1 
   IF IOStats.CntIN <= Glo:MaxPatterns THEN
      RETURN False
   END
-  lRemove=lStart
+  lRemoveStart=lStart
   IF Glo:MinPatterns > 0 THEN 
-    lRemove -= size(lDelim)
+    lRemoveStart -= size(sDelim)
     LOOP Glo:MinPatterns TIMES
-      lRemove = st.findChars(lDelim,lRemove+size(lDelim),lEnd)
-      IF ~lRemove THEN RETURN FALSE.
+      lRemoveStart = st.findChars(sDelim,lRemoveStart+size(sDelim),lEnd)
+      IF ~lRemoveStart THEN RETURN FALSE.
     END 
     IOStats.CntOUT = Glo:MinPatterns 
   END
-?   IF BangView THEN BangCls.StringView(St.Slice(lRemove,lEnd - lRemove + 1),'['& lRemove &' : '& lEnd &'] removeFromPosition for ' & ltPatternsElement ).
-?   IF BangView THEN BangCls.StringView(St.Slice(lStart,lRemove-1),'['& lStart &' : '& lRemove-1 &'] Keep Min '& Glo:MinPatterns &' ' & ltPatternsElement ).
-?   IF BangView THEN bangSt.SetValue(St.Slice(lStart,lRemove-1)) ; bangSt.Split(lDelim) ; BangCls.LinesViewInList(bangSt,'Split ['& lStart &' : '& lRemove-1 &'] '& ltPatternsElement).
-  
-  lBytesRemoved = lEnd - lRemove + 1 
-  st.removeFromPosition(lRemove,lBytesRemoved)  ! remove after MinPatterns, keep before
-  IOStats.BytesOUT = IOStats.BytesIN - lBytesRemoved
+
+  lRemoveLength = lEnd - lRemoveStart + 1
+?   IF BangView THEN BangCls.SubView  (St,lRemoveStart,lRemoveLength,'RemoveFromPosition for ' & ltPatternsElement ).
+?   IF BangView THEN BangCls.SliceView(St,lStart ,lRemoveStart-1,'Keep Min '& Glo:MinPatterns &' ' & ltPatternsElement ).
+?   IF BangView THEN BangCls.PatternView(St,lStart,lRemoveStart-1,sDelim,ltPatternsElement & '> After Shrink').
+  st.removeFromPosition(lRemoveStart,lRemoveLength)  ! remove after MinPatterns, keep before
+  IOStats.BytesOUT = IOStats.BytesIN - lRemoveLength
   Return TRUE   !True if removed stuff   
 
-    
+!Add method to makeeasy show List of Patterns
+BangCls.PatternView PROCEDURE(StringTheory pST, Long pStart, Long pEnd, STRING pDelim,  STRING CapMsg)
+bangSt  StringTheory
+    CODE 
+    BangSt.SetValue(pST.Slice(pStart,pEnd)) 
+    BangSt.Split(pDelim) 
+    BangCls.LinesViewInList(bangSt,'Split ['& pStart &' : '& pEnd &'] '& CapMsg) 
+    RETURN

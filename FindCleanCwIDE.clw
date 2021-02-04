@@ -265,8 +265,8 @@ WinResize WindowResizeType
     OPEN(Window)               !<--- Windows is Open
     COMPILE('!-WndPrv-',_IFDef_CBWndPreview_)  
        WndPrvCls.Init(1)   
-       WndPrvCls.InitList(?List:CleanQ,     CleanQ,    'CleanQ')      !NOT required >= 11.13505 
-       WndPrvCls.InitList(?List:AppDataSvQ, AppDataSvQ,'AppDataSvQ') 
+       WndPrvCls.InitList(?List:CleanQ,     CleanQ,    'CleanQ')        !InitList() NOT required >= 11.13505 
+       WndPrvCls.InitList(?List:AppDataSvQ, AppDataSvQ,'AppDataSvQ')    !InitList() adds FromQ to List window
        WndPrvCls.InitList(?List:ClarionInstallQ,ClarionInstallQ ,'ClarionInstallQ')   
        WndPrvCls.InitList(?List:BinSettngQ, BinSettngQ ,'BinSettngQ')   
        WndPrvCls.InitList(?List:ConfigDirQ, ConfigDirQ ,'ConfigDirQ')   
@@ -658,9 +658,10 @@ Fld LONG
            !?List:CleanQ{PROP:NoTheme}=True  !Remove theme for old look ... or better below?
          !  Fld{PROPLIST:DefHdrBackColor} = COLOR:GradientInactiveCaption  !too Blue?
          !  Fld{PROPLIST:DefHdrTextColor} = COLOR:INACTIVECAPTIONTEXT
-           Fld{PROPLIST:DefHdrBackColor} = COLOR:BTNFACE                  !Too Gray
-          ! Fld{PROPLIST:DefHdrBackColor} = COLOR:3DLight                   !Just right :)
-           Fld{PROPLIST:DefHdrTextColor} = COLOR:BTNTEXT 
+         !  Fld{PROPLIST:DefHdrBackColor} = COLOR:BTNFACE                !Same as Window
+           Fld{PROPLIST:DefHdrBackColor} = COLOR:3DLight                 !Just right :) a bit darker
+           Fld{PROPLIST:DefHdrTextColor} = COLOR:BTNTEXT
+         !  Fld{PROP:LineHeight} = Fld{PROP:LineHeight} + 1    fine w/o space
            CASE Fld
            OF ?LIST:ClarionInstallQ 
                   DO ResizeFillWidth

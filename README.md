@@ -9,6 +9,8 @@ Below is the main window where you set your Max and Min counts then press Query 
  If it looks good press the Shrink button. The Clarion IDE must be closed.
  More to come...
 
+In the below screen capture on the top line is Clarion 11 from AppData showing Find Patterns has 453 items taking 5301 bytes.
+ This was a Query so click Shrink to reduce it to 25 which will take 453 bytes.
 
 ![tab cln](images/tabClean.png)
 
