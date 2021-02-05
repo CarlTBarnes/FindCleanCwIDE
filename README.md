@@ -5,18 +5,19 @@ In short ... run this utility once a month to keep the Find dialog opening fast 
 The Editor Find dialog saves your search strings to feed the drop list for reuse. 
  The ClarionProperties.XML file stores these strings in `<FindPatterns value=""/>`.
  This is NEVER purged :( so it can grow very large with 1000's of entries that cause the dialog to open slowly.
- The Find Clean utility will shrink it to fix the problem.
- Read the About tab for more info. Also see ClarionHub thread: [FIND popup dialog window appears slowly in IDE](https://clarionhub.com/t/find-popup-dialog-window-appears-slowly-in-ide/3764)
+ This utility will shrink it to fix the problem.
+ The About tab has more informaton. Also read the ClarionHub thread: [FIND popup dialog window appears slowly in IDE](https://clarionhub.com/t/find-popup-dialog-window-appears-slowly-in-ide/3764)
 
 Below is the main window where you set your Max and Min counts then press Query to view the count of Find and Replace patterns.
  Pressing the Shrink button will actually write the files. The Clarion IDE must be closed.
  The example shows Clarion 11 with Find Patterns having 453 items taking 5301 bytes.
- Click Shrink to reduce it to 25 items and 453 bytes.
- Other systems have had 7000+ items taking over 100k.
+ Are you going to search a drop list with 453 items?
+ Click Shrink to reduce it to 25 items and 243 bytes.
+ I've had systems with 9000 items taking 125k.
 
 ![tab cln](images/tabClean.png)
 
-The AppData folder is the normal location of ClarionProperties.XML. This tabs shows the contents of these folders.
+The AppData folders are the normal location of ClarionProperties.XML. This tab shows the contents of these folders.
 
 ![tab App](images/tabAppData.png)
 
@@ -31,25 +32,22 @@ The Config tab is where you can list folders you use with the  Clarion.exe /Conf
  
 ![tab Cfg](images/tabConfig.png)
 
-One reason I wrote this is I thought it might be useful to the code to find all the Configurations and Installs.
- You have all the code you should need in this repo. Please let me know how you used it?
+One reason I wrote this is I thought it might be useful to have code to find all the Clarion Installs and Configurations.
+ If you use code in this repo Please let me know how you used it?
 
 ## Big Bang Class for StringTheory
 
-This contains an example of using my Big Bang class to show StringTheory call result string or queue in a Window. This lets you visually confirm your code is getting the desired results.
+This code contains an example of using my Big Bang Theory class to show a StringTheory call result string or queue in a Window.
+ BBT lets you visually confirm your ST code is getting the desired results.
 
 The FindCleanCwIDE_ST.clw module contains all the ST code. Look in there for calls to BangCls.
- To see them at all the BangView variable must be (1). You can stop the display of the windows by checking "No Bang".
+ For the Bang windows to display the BangView variable must be (1).
+ At runtime you can stop the display of the windows by checking "No Bang".
 
 In the below screen capture you see the call to st.FindMatchPosition() then
  the call to BangCls.StringView() will display the slice in a Window.
  There are many other screen captures of the steps of this process.
  E.g. at the bottom you can see a List view of the split lines queue.
-
-  st.FindMatchPosition(' value *= *".*"',lStart,lEnd)
-  IF lStart <= 0 OR lStart > lEnd THEN RETURN false.
-    IF BangView THEN                             |
-       BangCls.StringView( 
 
 ![tab ](images/BigBang.png)
 
@@ -59,13 +57,14 @@ https://github.com/CarlTBarnes/StringTheory-LoadFile-Split-Viewer
 ## Window Preview Class
 
 To show the many features of my Window Preview class I added it to Find Clean.
- It's accessed with the "secret" flat button in top left corner, just hover up there andit will pop up.
+ It's accessed with the "secret" flat button in top left corner, just hover up there and it will pop up.
  It opens a new widow showing all controls on the Window in a List.
  You can examine PROP's of Controls, Window and SYSTEM. You can resize and restyle controls.
- For a LIST you can view the Format(), all the PROPLIST for one column and the Styles. You can see the From Queue design and records. 
+ For a LIST you can view the Format(), all the PROPLIST for one column and the Styles.
+ You can see the From Queue design and record data. 
  You can "Re-Format" the LIST i.e. change the FORMAT string, e.g. to resize columns.
  
-Don't think too hard about it, just click the secret top-left button and then look at everything, click every button and double on every row.
+Don't think too hard about it, just click the secret top left button and look at everything, click every button and double on every row.
  All this from 3 lines of code to Include, Declare and Init() my WndPreview class. 
 
 ![Prv](images/wndPreview.png)
