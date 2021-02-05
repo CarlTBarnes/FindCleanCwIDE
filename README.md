@@ -1,26 +1,38 @@
 # FindCleanCwIDE 
 
-ClarionProperties.XML contains the Find Dialog search history in `<FindPatterns value=""/>`.
- This can grow very large and needs to be shrunk or the dialog gets very slow.
+In short ... run this utility once a month to keep the Find dialog opening fast and the drop list in MRU order.
+
+The Editor Find dialog saves your search strings to feed the drop list for reuse. 
+ The ClarionProperties.XML file stores these strings in `<FindPatterns value=""/>`.
+ This is NEVER purged :( so it can grow very large with 1000's of entries that cause the dialog to open slowly.
+ The Find Clean utility will shrink it to fix the problem.
  Read the About tab for more info. Also see ClarionHub thread: [FIND popup dialog window appears slowly in IDE](https://clarionhub.com/t/find-popup-dialog-window-appears-slowly-in-ide/3764)
 
-Below is the main window where you set your Max and Min counts then press Query to View the count of Find and Replace patterns
- in the XML file.
- If it looks good press the Shrink button. The Clarion IDE must be closed.
- More to come...
-
-In the below screen capture on the top line is Clarion 11 from AppData showing Find Patterns has 453 items taking 5301 bytes.
- This was a Query so click Shrink to reduce it to 25 which will take 453 bytes.
+Below is the main window where you set your Max and Min counts then press Query to view the count of Find and Replace patterns.
+ Pressing the Shrink button will actually write the files. The Clarion IDE must be closed.
+ The example shows Clarion 11 with Find Patterns having 453 items taking 5301 bytes.
+ Click Shrink to reduce it to 25 items and 453 bytes.
+ Other systems have had 7000+ items taking over 100k.
 
 ![tab cln](images/tabClean.png)
 
+The AppData folder is the normal location of ClarionProperties.XML. This tabs shows the contents of these folders.
+
 ![tab App](images/tabAppData.png)
+
+This tab shows the Clarion installs from the Registry.
+ If the /ConfigDir switch was used these can have a Bin\Settings folder with ClarionProperties.XML.
+ Don't worry if you don't know about /ConfigDir. It is rarely used, just ignore it.
 
 ![tab BIN](images/tabBIN.png)
 
 The Config tab is where you can list folders you use with the  Clarion.exe /ConfigDir= switch. 
  In the below example I am using it to load test files from other folders.
+ 
 ![tab Cfg](images/tabConfig.png)
+
+One reason I wrote this is I thought it might be useful to the code to find all the Configurations and Installs.
+ You have all the code you should need in this repo. Please let me know how you used it?
 
 ## Big Bang Class for StringTheory
 
