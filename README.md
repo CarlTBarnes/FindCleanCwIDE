@@ -18,6 +18,7 @@ Below is the main window where you set your Max and Min counts then press Query 
 ![tab cln](images/tabClean.png)
 
 The AppData folders are the normal location of ClarionProperties.XML. This tab shows the contents of these folders.
+ Clarion 9.1 did not have an XML file in AppData because it uses /ConfigDir.
 
 ![tab App](images/tabAppData.png)
 
