@@ -31,7 +31,7 @@
   INCLUDE('CbFindCleanCls.INC'),ONCE
 
 !2 steps to use StringTheory: 1. Change _Have_ to (1), 2. Uncomment INCLUDE(..._ST')
-_Have_StringTheory_   EQUATE(0)             !1. Set as (1) = Have StringTheory 
+_Have_StringTheory_   EQUATE(0)              !1. Set as (1)=Have StringTheory   (2)=Have but NOT Default
 !  INCLUDE('FindCleanCwIDE_ST.clw','GLOBAL') !2. Uncomment ! Include(StringTheory
 
 Glo:UseStringTheory BYTE !(_Have_StringTheory_)
@@ -44,26 +44,28 @@ WndPrvCls   CBWndPreviewClass
 FindCleanCwWindow   PROCEDURE()
 CleanClaPropXmlFile Procedure(STRING ClaPropFullName, BYTE pQuery, *ClnStatsType ClnStats, *STRING OutMsg ),BOOL
 CleanXmlFindPattern Procedure(CbFindCleanClass FindCln, STRING ltPatternsElement, BYTE pQuery, *IOStatsType IOStats, *STRING OutMsg ),BOOL
- 
+DB                  PROCEDURE(STRING OutDebugMessage) 
+DBClear             PROCEDURE() 
 ExplorerOpen        PROCEDURE(STRING FolderName) 
 GetRegistryInstallsOfCW  PROCEDURE(QUEUE ClarionQ, *STRING ClaQ_RootPath, <*STRING ClaQ_ClarionName>, <*DECIMAL ClaQ_VersioNo>)
 GetFileDateTimeSize PROCEDURE(STRING inFileName,<*LONG outDate>,<*LONG outTime>,<*LONG outSize>),BOOL
 GetSpecialFolder    PROCEDURE(LONG CDSL),STRING 
 SetAboutText        PROCEDURE(LONG AboutFEQ)
-     MODULE('Windows')          !Windows Shell Folder SHFolder.DLL that must be distributed
+     MODULE('Windows')
         SHGetFolderPath(Long hwndOwner=0, LONG nFolder, Long hToken, Long dwFlags, *CSTRING pszPath),LONG,RAW,PASCAL,DLL(1),NAME('SHGetFolderPathA')
+        OutputDebugString(*Cstring Msg),PASCAL,RAW,DLL(1),NAME('OutputDebugStringA')
      END
   END
 
 !Region Global Data and Equates
-DbView                  SHORT(0)    !Open windows to view strings
+DbView                  SHORT(0)            !Open View String and debug Windows
 ClarionProperties_xml   EQUATE('ClarionProperties.xml')
 ltFindPatterns          EQUATE('<<FindPatterns')
 ltReplacePatterns       EQUATE('<<ReplacePatterns')
 valueEqQt               EQUATE('value="')
 
-Glo:MinPatterns     USHORT(25)
-Glo:MaxPatterns     USHORT(50)  !When count is this reduce to Min
+Glo:MaxPatterns     USHORT(50)      !When count is >= Max 
+Glo:MinPatterns     USHORT(25)      !  then reduce to Min
 Glo:AppDataSVpath   CSTRING(256) 
 Glo:TestShrink      BYTE            !Write to .TestShrink.xml 
 CSIDL_APPDATA       EQUATE(001ah)   !CSIDL_APPDATA 0x001a // <user name>\Application Data
@@ -81,9 +83,9 @@ Repl            GROUP(IOStatsType).
 
   CODE
   Glo:AppDataSVpath=GetSpecialFolder(CSIDL_APPDATA) & '\SoftVelocity\Clarion'
-  !Should be: !C:\Users\CBarnes\AppData\Roaming\SoftVelocity\Clarion 
+  !Should be: !C:\Users\ your user \AppData\Roaming\SoftVelocity\Clarion 
   FindCleanCwWindow()
-
+  RETURN
 !================================================================
 FindCleanCwWindow PROCEDURE()
 
@@ -109,7 +111,7 @@ BinSettngQ  QUEUE(AppDataSvQ),PRE(BinSetQ)  !CW Install Queue for C:\Clarion11\b
 ConfigDirQ  QUEUE(AppDataSvQ),PRE(CfgDirQ)
             END 
 ConfigDir_Txt_FN    EQUATE('ConfigDir.txt')
-ConfigDirTxt_TEXT   STRING(128*80)    !Contents of ConfigDir.Txt
+ConfigDirTxt_TEXT   STRING(128*80)    !Contents of ConfigDir.Txt  80 paths x 128 bytes
 ConfigTextEditThis  BYTE
 JustDoConfigDirs    BYTE        !For testing ignore AppData and BinSettings
 
@@ -148,39 +150,39 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                         'M~Bytes~C(0)@n7@/24R(2)|_M@n4b@Q''Replace Count After''34R(2)|_M@n7b@]|~Replace Pattrns<13,10>B' & |
                         'efore/After~[257L(2)P~Delete Key will remove rows to omit from shrink<13,10>Path  -  Double Cli' & |
                         'ck to Open~@s255@Z(1)/257R(2)_P~Clean message~@s255@]'),ALRT(DeleteKey)
-                GROUP,AT(5,25,400,25),USE(?GroupTab1)
-                    BUTTON('Query'),AT(10,32,54,16),USE(?QueryBtn),ICON(ICON:Zoom),TIP('Scan the files and show pattern ' & |
-                            'counts'),LEFT
-                    PROMPT('Maximum Count:'),AT(77,30,58),USE(?Glo:MaxPatterns:Prompt),TRN,RIGHT
-                    ENTRY(@n3),AT(138,30,19,9),USE(Glo:MaxPatterns),CENTER,TIP('When count is >= Maximum<13,10>then redu' & |
-                            'ce to "Shrink To"')
-                    PROMPT('Shrink To Count:'),AT(77,41,58),USE(?Glo:MinPatterns:Prompt),TRN,RIGHT
-                    ENTRY(@n3),AT(138,41,19,9),USE(Glo:MinPatterns),CENTER
-                    BUTTON('Shrink Patterns'),AT(173,32,82,16),USE(?ShrinkBtn),ICON(ICON:Save),TIP('Shrink the patterns ' & |
-                            'in the Cla Prop XML'),LEFT
-                    CHECK('Write to Clarion Prop Xml'),AT(266,32),USE(WriteOK),FONT(,9),TIP('Check "Write to Clarion" bo' & |
-                            'x to allow writing ClarionProperties.XML<13,10>with Find/Replace Patterns shrunk.<13,10,13>' & |
-                            '<10>Two backup copies are kept with extension .b4clean.<13,10,13,10>Check the "Write to Tes' & |
-                            't Shrink" box to instead test by writing to ClarionProperties.XML.TestShrink ')
-                    CHECK('Write to .TestShrink.Xml'),AT(266,40),USE(Glo:TestShrink),FONT(,9),TIP('Write shrunk file to ' & |
-                            'ClarionProperties.Xml.TestShrink.Xml<13,10><13,10>Compare this file to original xml to view' & |
-                            ' changes.')
-                    CHECK('Clarion IDE Closed ?'),AT(370,32),USE(IDEClosed),FONT(,9),TIP('All Clarion IDE''s must be clo' & |
-                            'sed to "Shrink Patterns".<13,10><13,10>If Clarion is left open it will write the TOO BIG pa' & |
-                            'tterns on Close.<13,10><13,10>')
-                    CHECK('Capesoft StringTheory'),AT(370,40),USE(Glo:UseStringTheory),FONT(,9,095491FH,FONT:bold), |
-                            TIP('Check for Geoff''s code using StringTheory from www.CapeSoft.com <13,10>Suggested for Developers South of the Equator<13,10><13,10>Uncheck ' & |
-                            'to use Carl''s code - "The Northern Solution"')
-                END
+                BUTTON('Query'),AT(10,32,54,16),USE(?QueryBtn),ICON(ICON:Zoom),TIP('Scan the files and show pattern counts'), |
+                        LEFT
+                PROMPT('Maximum Count:'),AT(77,30,58),USE(?Glo:MaxPatterns:Prompt),TRN,RIGHT
+                ENTRY(@n3),AT(138,30,19,9),USE(Glo:MaxPatterns),CENTER,TIP('When count is >= Maximum<13,10>then reduce t' & |
+                        'o "Shrink To"')
+                PROMPT('Shrink To Count:'),AT(77,41,58),USE(?Glo:MinPatterns:Prompt),TRN,RIGHT
+                ENTRY(@n3),AT(138,41,19,9),USE(Glo:MinPatterns),CENTER
+                BUTTON('Shrink Patterns'),AT(173,32,82,16),USE(?ShrinkBtn),ICON(ICON:Save),TIP('Shrink the patterns in t' & |
+                        'he Cla Prop XML'),LEFT
+                CHECK('Write to Clarion Prop Xml'),AT(266,32),USE(WriteOK),FONT(,9),TIP('Check "Write to Clarion" ' & |
+                        ' to allow writing ClarionProperties.XML<13,10>with the "Shrink Patterns" for Find/Replace.<13><10,13,10>' & |
+                        'Two backup copies are kept with extension ".b4clean" to allow recovery.<13,10,13><10>To test th' & |
+                        'is tool check the "Write to Test Shrink" box<13,10>to instead write to file ClarionProperties.Xml.T' & |
+                        'estShrink ')
+                CHECK('Write to .TestShrink.Xml'),AT(266,40),USE(Glo:TestShrink),FONT(,9),TIP('Check to write shrunk' & |
+                        ' file to ClarionProperties.Xml.TestShrink.Xml<13,10><13,10>Compare the .TestShrink file to the ' & |
+                        'original .Xml to view changes.')
+                CHECK('Clarion IDE Closed ?'),AT(370,32),USE(IDEClosed),FONT(,9),TIP('All Clarion IDE''s updated mus' & |
+                        't be closed to "Shrink Patterns".<13,10><13,10>If Clarion is left open it will re-write the XML' & |
+                        ' file with the too BIG patterns when closed.<13,10><13,10>TestShrink can be written with Clario' & |
+                        'n open.')
+                CHECK('Capesoft StringTheory'),AT(370,40),USE(Glo:UseStringTheory),FONT(,9,095491FH,FONT:bold), |
+                        TIP('Check for Geoff''s code using StringTheory from www.CapeSoft.com <13,10>Suggested for Devel' & |
+                        'opers South of the Equator<13,10><13,10>Uncheck to use Carl''s code - "The Northern Solution"')
             END
             TAB(' 1. AppData SoftVelocity '),USE(?TAB:AppData)
                 BOX,AT(9,18,457,10),USE(?Box_AppData),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
                 PROMPT('AppData Roaming is the default location the Clarion IDE saves ClarionProperties.Xml. The /Config' & |
                         'Dir [=path] overrides the location.'),AT(12,18),USE(?AppDataSVpath:FYI),TRN
                 ENTRY(@s255),AT(10,29,458,10),USE(Glo:AppDataSVpath),SKIP,TRN,FONT('Consolas'),READONLY
-                LIST,AT(9,41,457,153),USE(?List:AppDataSvQ),VSCROLL,FROM(AppDataSvQ),FORMAT('32L(2)|FM~Folder~C(0)@s255@80L' & |
-                        '(2)|M~Clarion Properties~@s255@34R(2)|M~Date~C(0)@d1b@34R(2)|M~Time~C(0)@T3b@40R(2)|M~Size~C(0)' & |
-                        '@n11b@257L(2)P~Path  -  Double Click to Open~@s255@Z(1)'),ALRT(DeleteKey)
+                LIST,AT(9,41,457,153),USE(?List:AppDataSvQ),VSCROLL,FROM(AppDataSvQ),FORMAT('32L(2)|FM~Folder~C(0)@s255@' & |
+                        '80L(2)|M~Clarion Properties~@s255@34R(2)|M~Date~C(0)@d1b@34R(2)|M~Time~C(0)@T3b@40R(2)|M~Size~C' & |
+                        '(0)@n11b@257L(2)P~Path  -  Double Click to Open~@s255@Z(1)'),ALRT(DeleteKey)
             END
             TAB(' 2. CW Bin \ Settings '),USE(?TAB:Installs)
                 BOX,AT(9,18,459,10),USE(?Box_Reg),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
@@ -200,9 +202,9 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                         'C(0)@n11b@257L(2)P~Root Path or Settings Path  -  Double Click to Open~@s255@'),ALRT(DeleteKey)
             END
             TAB(' 3. /ConfigDir .Txt '),USE(?TAB:Other)
-                CHECK('Just This'),AT(10,20),USE(JustDoConfigDirs),SKIP,TRN,FONT(,9),TIP('Only Process ConfigDir files. O' & |
-                        'mit AppData and Bin Settings.<13><10>Good for testing specific files.<13,10>Put JUST on first l' & |
-                        'ine of ConfigDir.TXT to check this box.')
+                CHECK('Just This'),AT(10,20),USE(JustDoConfigDirs),SKIP,TRN,FONT(,9),TIP('Only Process ConfigDir files. ' & |
+                        'Omit AppData and Bin Settings.<13><10>Good for testing specific files.<13,10>Put JUST on first ' & |
+                        'line of ConfigDir.TXT to check this box.')
                 CHECK('Edit This'),AT(10,33),USE(ConfigTextEditThis),SKIP,TRN,FONT(,9),TIP('Allow Editing ConfigDir.TXT')
                 BUTTON('Re-Parse'),AT(9,42,42,11),USE(?ConfigDirTxtReParseBtn),DISABLE,SKIP,FONT(,9),TIP('Re-Parse the e' & |
                         'ditted ConfigDir.Txt')
@@ -244,6 +246,7 @@ LoadCleanQueue      PROCEDURE()                 !Load 1 Q of files to process fr
 LoadCleanQFrom1Q    PROCEDURE(AppDataSvQ Add1Q, STRING FromQName, BYTE From123 )  !Load Add1Q into CleanQ
 CleanTheFiles       PROCEDURE(BYTE pQuery)      !Scan CleanQ files and Shrink
 ValidateParms       PROCEDURE()                 !Check Min/Max and maybe other are good
+YellowControl       PROCEDURE(LONG pFEQ, BOOL pOnOff=1)   !Make Checks Yellow to hightlight
       END
 WindowInitialized BOOL
 SettingFile  EQUATE('.\FndClnSettings.ini')
@@ -271,7 +274,7 @@ WinResize WindowResizeType
        WndPrvCls.InitList(?List:BinSettngQ, BinSettngQ ,'BinSettngQ')   
        WndPrvCls.InitList(?List:ConfigDirQ, ConfigDirQ ,'ConfigDirQ')   
              !-WndPrv-
-    DOO.WindowInitPretty()            !Make LIST and BOX Look better. Init Resize
+    DOO.WindowInitPretty()            !Make LIST and BOX Look better. Init Window Resize
     DOO.LoadConfigDirTxt()            !Window MUST be open, uses TEXT for getting lines 
     ?ConfigDirTxtExploreBtn{PROP:Tip}='Open Explorer to ' & LongPath()
     SetAboutText(?AboutTEXT)
@@ -288,23 +291,22 @@ WinResize WindowResizeType
             DOO.ValidateParms()
             IF ~Glo:TestShrink THEN 
                IF ~WriteOK THEN 
-                   ?WriteOK{PROP:Background}=COLOR:Yellow 
-                   IF ~IDEClosed THEN ?IDEClosed{PROP:Background}=COLOR:Yellow.
+                   DOO.YellowControl(?WriteOK)
+                   IF ~IDEClosed THEN DOO.YellowControl(?IDEClosed).
                    SELECT(?WriteOK) 
-                   Message(?WriteOK{PROP:Tip},'Check Write Ok')                 
+                   Message(?WriteOK{PROP:Tip},'Check Write Ok',ICON:Save)                 
                    CYCLE 
                END
                IF ~IDEClosed THEN 
-                   ?IDEClosed{PROP:Background}=COLOR:Yellow
+                   DOO.YellowControl(?IDEClosed)
                    SELECT(?IDEClosed) 
                    Message(?IDEClosed{PROP:Tip},'Check IDE Closed')                 
                    CYCLE 
                END 
                
             END
-            ?WriteOK{PROP:Background}=COLOR:None 
-            ?IDEClosed{PROP:Background}=COLOR:None 
-           ! ?WriteOK{PROP:Skip}=1
+            DOO.YellowControl(?WriteOK,False)
+            DOO.YellowControl(?IDEClosed,False)
             DOO.CleanTheFiles(0) 
             DISPLAY
             
@@ -324,10 +326,10 @@ WinResize WindowResizeType
         OF ?Glo:MaxPatterns
             IF Glo:MaxPatterns < Glo:MinPatterns THEN Glo:MaxPatterns = Glo:MinPatterns + 20.
             DISPLAY
-        OF ?ConfigDirTxtReloadBtn  ; DOO.LoadConfigDirTxt(False) ; DISPLAY
-        OF ?ConfigDirTxtNotepadBtn ; RUN('Notepad ' & ConfigDir_Txt_FN)  
-        OF ?ConfigDirTxtExploreBtn ; ExplorerOpen(LongPath()) 
-        OF ?ConfigDirTxtReParseBtn ; DOO.LoadConfigDirTxt(True)  ; DISPLAY 
+        OF ?ConfigDirTxtReloadBtn    ; DOO.LoadConfigDirTxt(False) ; DISPLAY
+        OF ?ConfigDirTxtNotepadBtn   ; RUN('Notepad ' & ConfigDir_Txt_FN)  
+        OF ?ConfigDirTxtExploreBtn   ; ExplorerOpen(LongPath()) 
+        OF ?ConfigDirTxtReParseBtn   ; DOO.LoadConfigDirTxt(True)  ; DISPLAY 
         OF ?ConfigDirTxtClearTextBtn ; CLEAR(ConfigDirTxt_TEXT)  ; DISPLAY 
         OF ?ConfigDirTxtFreeListBtn  ; FREE(ConfigDirQ) ; JustDoConfigDirs=0 ; DISPLAY 
         
@@ -405,6 +407,13 @@ DOO.ValidateParms PROCEDURE()    !Check Min/Max and maybe other are good
     IF Glo:MinPatterns > 900 THEN Glo:MinPatterns = 900.
     IF Glo:MaxPatterns < Glo:MinPatterns THEN Glo:MaxPatterns = Glo:MinPatterns + 20.
     IF WindowInitialized THEN DISPLAY.
+    RETURN 
+!================================================================
+DOO.YellowControl PROCEDURE(LONG pFEQ, BOOL pOnOff=1)   !Make Checks Yellow to hightlight
+    CODE
+    pFEQ{PROP:TRN}       =CHOOSE(~pOnOff)  !No TRN to have Background
+    pFEQ{PROP:Background}=CHOOSE(~pOnOff,COLOR:None,COLOR:Yellow)
+    pFEQ{PROP:FontColor} =CHOOSE(~pOnOff,COLOR:None,COLOR:Navy)
     RETURN    
 !====================================================================================
 DOO.LoadAppDataQueue    PROCEDURE()   !Load \AppData\Roaming\SV\Clarion\...
@@ -421,7 +430,7 @@ DirQ    QUEUE(FILE:Queue),PRE(DirQ)
             CYCLE
          END
          IF ~STRPOS(DirQ:Name,'^[1-9][0-9]?.[0-9]+$') THEN   !Only numeric folders  #.# 
-            CYCLE  !If AppData has "11.0 - Copy" skip that
+            CYCLE  !If AppData has "11.0 - Copy" skip that, could be option? 
          END
          CLEAR(AppDataSvQ)
          AppSvQ:SubFolder = DirQ:Name 
@@ -434,7 +443,8 @@ DirQ    QUEUE(FILE:Queue),PRE(DirQ)
          END
          ADD(AppDataSvQ,-AppSvQ:VersionNo,AppSvQ:SubFolder)
          
-    END !LOOP Delete files 
+    END !LOOP files
+    RETURN
  
 !================================================================
 DOO.LoadBinSettngQueue  PROCEDURE()   !Load installs in Registry \Bin\Settings
@@ -455,7 +465,8 @@ QNdx    LONG,AUTO
          BinSetQ:PathTip = BinSetQ:PathBS
          BinSetQ:Root    = CLIP(ClaInstQ:Root)
          ADD(BinSettngQ,-BinSetQ:VersionNo,BinSetQ:SubFolder,BinSetQ:Root)         
-    END !LOOP Delete files 
+    END !LOOP files
+    RETURN
 !================================================================  
 DOO.LoadConfigDirTxt    PROCEDURE(BOOL pParseOnly=0)
 FndCln  CbFindCleanClass    !Use class to Load file
@@ -472,9 +483,7 @@ Pth     STRING(300)
                 '<13,10>; Or end the Path with "\*" to load all sub folders containing: ' & ClarionProperties_xml & | 
                 '<13,10>; Can find all sub folders with DOS command: DIR /S /B ' & ClarionProperties_xml & | 
                 '<13,10>; Limit testing by checking "Just This" and only these folders are scanned. ' & | 
-                '<13,10>; Put "JUST" on first line to check "Just This". Put "END" on a line to stop loading. ' & | 
-                '' !'<13,10>;  ' & |  
-            
+                '<13,10>; Put "JUST" on first line to check "Just This". Put "END" on a line to stop loading. '
             RETURN 
         END 
         IF ~FndCln.FileLoad(ConfigDir_Txt_FN,1) THEN 
@@ -529,7 +538,7 @@ Pth     STRING(300)
              CfgDirQ:ClaPropFN ='' 
          END         
          ADD(ConfigDirQ)
-    END
+    END !LOOP ConfigDirTxt_TEXT PROP:Line,#
     RETURN
 
 AsteriskLoadsSubDirsRtn ROUTINE 
@@ -554,7 +563,7 @@ DirQ    QUEUE(FILE:Queue),PRE(DirQ)
          PUT(DirQ)
     END
     SORT(DirQ,DirQ:ShortName,DirQ:Name) 
-    LOOP QNdx = 1 TO RECORDS(DirQ)   !--Keep directories ##.## skip others
+    LOOP QNdx = 1 TO RECORDS(DirQ)   !--Keep directories with ClaProp.xml
          GET(DirQ,QNdx)
          CLEAR(ConfigDirQ)
          CfgDirQ:SubFolder = 'Line# ' & LineNo &'*'
@@ -568,7 +577,7 @@ DirQ    QUEUE(FILE:Queue),PRE(DirQ)
          END         
          ADD(ConfigDirQ)         
     END !LOOP DirQ files 
-
+    EXIT
 !================================================================
 DOO.LoadCleanQueue      PROCEDURE()  !Load 1 Q of all files to process from AppData and Cw Installs and ConfigDir
 QNdx    LONG,AUTO
@@ -623,9 +632,9 @@ CleanOk    BOOL
             CleanOk = CleanClaPropXmlFile(CleanQ.PathBS & ClarionProperties_xml , pQuery, |
                                           ClnStats, CleanQ.CleanMsg) 
         ELSE   !String Theory  
-            COMPILE('!**END ST Clean**', _Have_StringTheory_)
-            CleanOk = ST_CleanClaPropXmlFile(CleanQ.PathBS & ClarionProperties_xml , pQuery, |
-                                          ClnStats, CleanQ.CleanMsg)  
+            COMPILE('!**END ST Clean**', _Have_StringTheory_ > 0)    
+            CleanOk = ST_CleanClaPropXmlFile(CleanQ.PathBS & ClarionProperties_xml , pQuery, |  !StringTheory clean code 
+                                          ClnStats, CleanQ.CleanMsg)                            !in FindCleanCwIDE_ST.clw
             !end COMPILE('!**END ST Clean**'
         END  
         IF CleanOk THEN
@@ -643,19 +652,18 @@ CleanOk    BOOL
 !=========================================
 DOO.WindowInitPretty PROCEDURE() 
 Fld LONG  
-    CODE 
-    !0{PROP:MinWidth}=0{PROP:Width}  ; 0{PROP:MinHeight}=0{PROP:Height} * .60 
+    CODE  
     WinResize.Init(AppStrategy:NoResize,Resize:SetMinSize)
     ?SHEET1{PROP:NoTheme}=True
     ?SHEET1{PROP:TabSheetStyle}=1   
     ?List:CleanQ{PROPSTYLE:FontName,1}='Consolas'
-    !?List:AppDataSvQ{PROPSTYLE:FontName,1}='Consolas'         too big after resize
+    !?List:AppDataSvQ{PROPSTYLE:FontName,1}='Consolas'   too big after resize
     LOOP
         Fld=0{PROP:NextField,Fld} ; IF ~Fld THEN BREAK.
         CASE Fld{PROP:Type}
         OF CREATE:list  
             !With Manifest and Windows 10 the header is White like Data so Color it 
-           !?List:CleanQ{PROP:NoTheme}=True  !Remove theme for old look ... or better below?
+           !?List:CleanQ{PROP:NoTheme}=True  !Remove theme for old look ... or better colors below?
          !  Fld{PROPLIST:DefHdrBackColor} = COLOR:GradientInactiveCaption  !too Blue?
          !  Fld{PROPLIST:DefHdrTextColor} = COLOR:INACTIVECAPTIONTEXT
          !  Fld{PROPLIST:DefHdrBackColor} = COLOR:BTNFACE                !Same as Window
@@ -703,7 +711,7 @@ SettingsCls.LoadAll  PROCEDURE()       !SettingFile  EQUATE('.\FndClnSettings.in
     IDEClosed     =SELF.Get1('IDEClosed' ,IDEClosed)    
     Glo:TestShrink=SELF.Get1('TestShrink',Glo:TestShrink) 
 
-    IF _Have_StringTheory_ THEN 
+    IF _Have_StringTheory_ = 1 THEN 
       Glo:UseStringTheory=SELF.Get1('UseStringTheory',Glo:UseStringTheory) 
     END   
     RETURN
@@ -716,7 +724,7 @@ SettingsCls.SaveAll  PROCEDURE()
     SELF.Put1('_remove_WriteOK'   ,WriteOK)           !Write to INI as "; " so does not read
     SELF.Put1('_remove_IDEClosed' ,IDEClosed)         !but can edit INI to make default load
     SELF.Put1('_remove_TestShrink',Glo:TestShrink)    !Can also put TEST SHRINK in ConfigDir.Txt
-    IF _Have_StringTheory_ THEN 
+    IF _Have_StringTheory_ = 1 THEN 
        SELF.Put1('UseStringTheory',Glo:UseStringTheory)
     END
     RETURN    
@@ -728,7 +736,7 @@ SettingsCls.Put1  PROCEDURE(STRING EntryName, STRING SaveValue)
     PUTINI('Config',EntryName,SaveValue,SettingFile)
     RETURN       
 !#################################################################################### 
-  COMPILE('!**END ST Clean**', _Have_StringTheory_)
+  COMPILE('!**END ST Clean**', _Have_StringTheory_ > 0)
      INCLUDE('FindCleanCwIDE_ST.clw','Functions') !String Theory
   !end COMPILE('!**END ST Clean**'
 !ST_CleanClaPropXmlFile Procedure(STRING ClaPropFullName, BYTE pQuery, *ClnStatsType ClnStats, *STRING OutMsg )!,BOOL
@@ -894,6 +902,17 @@ HR              LONG,AUTO
     END
     RETURN OutPathCStr
 !==============================================
+DB   PROCEDURE(STRING xMessage)
+Prfx EQUATE('FindCln: ')
+sz   CSTRING(SIZE(Prfx)+SIZE(xMessage)+3),AUTO
+  CODE 
+  sz  = Prfx & CLIP(xMessage) & '<13,10>'
+  OutputDebugString( sz )
+DBClear PROCEDURE()
+DbgClear CSTRING('DBGVIEWCLEAR')    !Message to Clear the buffer. Must UPPER and first i.e. without a Prefix
+    CODE 
+    OutputDebugString(DbgClear)     !Cannot have Prefix, must be first .. so call API directly
+!==============================================
 SetAboutText PROCEDURE(LONG AboutFEQ)
 AboutTxt STRING('The Clarion Editor Find/Replace dialog saves the text you enter in ClarionProperties.xml ' &|
      'file as <<FindPatterns value=""> and <<ReplacePatterns value="">. These are never purged ' &|
@@ -914,7 +933,7 @@ AboutTxt STRING('The Clarion Editor Find/Replace dialog saves the text you enter
      'something goes wrong and you wish to recover. The previous backup is saved as .b4clean2 ' &|
      'so you have 2 backups. ' &|
      '<13,10>' &|
-     '<13,10>You can test by checking the "Write to Test Shrink" box so the original file is ' &|
+     '<13,10>You can test by checking the "Write to Test Shrink" so the original file is ' &|
      'left untouched. You can limit folders touched by pressing the Delete key to remove folders ' &|
      'from the lists. Another way to test is  on the /ConfigDir= tab checking the "Just This" ' &|
      'box to limit to folders in that list. ' &|

@@ -13,7 +13,7 @@ Below is the main window where you set your Max and Min counts then press Query 
  The example shows Clarion 11 with Find Patterns having 453 items taking 5301 bytes.
  Are you going to search a drop list with 453 items?
  Click Shrink to reduce it to 25 items and 243 bytes.
- I've had systems with 9000 items taking 125k.
+ Notice Clarion 10 had 7254 items taking 106k bytes!
 
 ![tab cln](images/tabClean.png)
 
@@ -22,13 +22,15 @@ The AppData folders are the normal location of ClarionProperties.XML. This tab s
 ![tab App](images/tabAppData.png)
 
 This tab shows the Clarion installs from the Registry.
- If the /ConfigDir switch was used these can have a Bin\Settings folder with ClarionProperties.XML.
+ If the /ConfigDir switch was used these folders can have a Bin\Settings folder with ClarionProperties.XML.
  Don't worry if you don't know about /ConfigDir. It is rarely used, just ignore it.
+ The capture below shows 9.1 has a Settings folder so was run with /ConfigDir.
 
 ![tab BIN](images/tabBIN.png)
 
 The Config tab is where you can list folders you use with the  Clarion.exe /ConfigDir= switch. 
- In the below example I am using it to load test files from other folders.
+ In the below example I am using it to load test files from the TestXML folders.
+ These files are included in the TestXmlFile.ZIP.
  
 ![tab Cfg](images/tabConfig.png)
 

@@ -1,5 +1,12 @@
-!The functions to use StringTheory
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS Section Global SSSSSSSSSSSSSSSSSSSSSSSSSS
+!FindCleanCwIDE_ST.clw contains the functions to use StringTheory 
+!More info on StringTheory at https://capesoft.com/accessories/StringTheorysp.htm 
+!!!-------------------------------------------------------------------------------------
+!!!To include StringTheory in the build edit the 2 lines below in FindCleanCwIDE_ST.clw 
+!!!    _Have_StringTheory_   EQUATE(0)              !1. Change to (1)
+!!!  !  INCLUDE('FindCleanCwIDE_ST.clw','GLOBAL')   !2. Uncomment ! Include(StringTheory
+!!!------------------------------------------------------------------------------------- 
+!
+!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS Section Global SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
     SECTION('Global')   !INCLUDE('FindCleanCwIDE_ST.clw','GLOBAL')
 
     INCLUDE('StringTheory.inc'),ONCE
