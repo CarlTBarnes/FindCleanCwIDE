@@ -150,13 +150,13 @@ SaveRtn ROUTINE
 CbFindCleanClass.PatternCount PROCEDURE(LONG PatBegin, LONG PatEnd)!,LONG
 CntDlm  LONG
 X       LONG,AUTO 
-lDelim  EQUATE('<0C3h,0BFh>')
+sDelim  EQUATE('<0C3h,0BFh>')
     CODE
     IF ~SELF.SliceXmlIsOk(PatBegin, PatEnd,'PatternCount') THEN
         RETURN 0
     END 
     LOOP X=PatBegin TO PatEnd-1
-         IF SELF.XmlStr[ X : X+1 ] = lDelim THEN 
+         IF SELF.XmlStr[ X : X+1 ] = sDelim THEN 
             CntDlm += 1
             X += 1
          END            

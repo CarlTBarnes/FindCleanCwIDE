@@ -44,13 +44,17 @@ WndPrvCls   CBWndPreviewClass
 FindCleanCwWindow   PROCEDURE()
 CleanClaPropXmlFile Procedure(STRING ClaPropFullName, BYTE pQuery, *ClnStatsType ClnStats, *STRING OutMsg ),BOOL
 CleanXmlFindPattern Procedure(CbFindCleanClass FindCln, STRING ltPatternsElement, BYTE pQuery, *IOStatsType IOStats, *STRING OutMsg ),BOOL
+CleanViewPatterns   Procedure(STRING ClaPropFullName, STRING ltPatternsElement)
+
 DB                  PROCEDURE(STRING OutDebugMessage) 
 DBClear             PROCEDURE() 
-ExplorerOpen        PROCEDURE(STRING FolderName) 
+ExplorerOpen        PROCEDURE(STRING FolderName)
+NotepadOpen         PROCEDURE(STRING FileName)
 GetRegistryInstallsOfCW  PROCEDURE(QUEUE ClarionQ, *STRING ClaQ_RootPath, <*STRING ClaQ_ClarionName>, <*DECIMAL ClaQ_VersioNo>)
 GetFileDateTimeSize PROCEDURE(STRING inFileName,<*LONG outDate>,<*LONG outTime>,<*LONG outSize>),BOOL
 GetSpecialFolder    PROCEDURE(LONG CDSL),STRING 
-SetAboutText        PROCEDURE(LONG AboutFEQ)
+SetAboutText        PROCEDURE(LONG AboutFEQ) 
+XmlUnEscape         PROCEDURE(*STRING InOutXML, BYTE Clip1_Size0=1),LONG,PROC   !Returns Change Out
      MODULE('Windows')
         SHGetFolderPath(Long hwndOwner=0, LONG nFolder, Long hToken, Long dwFlags, *CSTRING pszPath),LONG,RAW,PASCAL,DLL(1),NAME('SHGetFolderPathA')
         OutputDebugString(*Cstring Msg),PASCAL,RAW,DLL(1),NAME('OutputDebugStringA')
@@ -63,7 +67,7 @@ ClarionProperties_xml   EQUATE('ClarionProperties.xml')
 ltFindPatterns          EQUATE('<<FindPatterns')
 ltReplacePatterns       EQUATE('<<ReplacePatterns')
 valueEqQt               EQUATE('value="')
-
+SettingFile             EQUATE('.\FndClnSettings.ini')
 Glo:MaxPatterns     USHORT(50)      !When count is >= Max 
 Glo:MinPatterns     USHORT(25)      !  then reduce to Min
 Glo:AppDataSVpath   CSTRING(256) 
@@ -174,7 +178,7 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                 CHECK('Capesoft StringTheory'),AT(370,40),USE(Glo:UseStringTheory),FONT(,9,095491FH,FONT:bold), |
                         TIP('Check for Geoff''s code using StringTheory from www.CapeSoft.com <13,10>Suggested for Devel' & |
                         'opers South of the Equator<13,10><13,10>Uncheck to use Carl''s code - "The Northern Solution"')
-            END
+     END
             TAB(' 1. AppData SoftVelocity '),USE(?TAB:AppData)
                 BOX,AT(9,18,457,10),USE(?Box_AppData),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
                 PROMPT('AppData Roaming is the default location the Clarion IDE saves ClarionProperties.Xml. The /Config' & |
@@ -249,7 +253,6 @@ ValidateParms       PROCEDURE()                 !Check Min/Max and maybe other a
 YellowControl       PROCEDURE(LONG pFEQ, BOOL pOnOff=1)   !Make Checks Yellow to hightlight
       END
 WindowInitialized BOOL
-SettingFile  EQUATE('.\FndClnSettings.ini')
 SettingsCls   CLASS
 LoadAll PROCEDURE()      
 SaveAll PROCEDURE() 
@@ -340,7 +343,10 @@ WinResize WindowResizeType
            ?ConfigDirTxt_TEXT{PROP:ReadOnly}=False
            ?ConfigDirTxt_TEXT{PROP:Skip}=False 
            ENABLE(?ConfigDirTxtReParseBtn)
-           ENABLE(?ConfigDirTxtClearTextBtn)
+           ENABLE(?ConfigDirTxtClearTextBtn) 
+           ?ConfigDirTxtReloadBtn{PROP:Text}='clear + load'
+           ?ConfigDirTxtReloadBtn{PROP:Tip}='Clear Editted Text and Reload ... Losing any edits' & |
+                                            '<13,10,13,10>Press ReLoad button to load Editted Text paths'
            DISPLAY ; SELECT(?ConfigDirTxt_TEXT)
         END
 
@@ -353,6 +359,20 @@ WinResize WindowResizeType
            OF EVENT:NewSelection
               CASE KEYCODE()
               OF MouseLeft2 ; ExplorerOpen(CleanQ.PathBS)
+              OF MouseRight  
+                     SETKEYCODE(0)
+                     EXECUTE POPUP('Explore Folder	Double Click' & |  !#1            
+                                 '|Open XML in Notepad'   & |  !#2
+                          '|-' & '|View Find Patterns'    & |  !#3
+                                 '|View Replace Patterns' & |  !#4
+                          '|-' & '|Delete Row	Delete'   )    !#5
+                      
+                       ExplorerOpen(CleanQ.PathBS)  ! #1
+                       NotepadOpen(CleanQ.PathBS & ClarionProperties_xml)
+                       START(CleanViewPatterns,,CleanQ.PathBS & ClarionProperties_xml,ltFindPatterns)
+                       START(CleanViewPatterns,,CleanQ.PathBS & ClarionProperties_xml,ltReplacePatterns)
+                       DELETE(CleanQ)               ! # 5  Delete Row`Delete
+                     END !EXECUTE Popup                 
               END
            END
                        
@@ -745,8 +765,6 @@ CleanClaPropXmlFile Procedure(STRING pClaPropXmlFN, BYTE pQuery, *ClnStatsType C
 DidSaveOk   BOOL
 FindCln     CbFindCleanClass
 CleanCnt    LONG
-Pos1        LONG
-Pos2        LONG
 B4CleanName STRING(260)
     CODE
     B4CleanName=CLIP(pClaPropXmlFN) & '.b4clean'
@@ -829,9 +847,186 @@ Pos2        LONG
         END
     END
     RETURN RetBool
+!===================================================================================
+CleanViewPatterns     Procedure(STRING pClaPropXmlFN, STRING ltPatternsElement) 
+!Simple idea view the Find strings. Looking at 7000 strings useless... so more work later have Unique 
+FindQ   QUEUE,PRE(FndQ)  ! FindQ         AlphaQ       CountQ
+MRU          LONG        ! FndQ:MRU      AlpQ:MRU     CntQ:MRU
+Count        LONG        ! FndQ:Count    AlpQ:Count   CntQ:Count
+What         STRING(48)  ! FndQ:What     AlpQ:What    CntQ:What 
+Lower        STRING(48)  ! FndQ:Lower    AlpQ:Lower   CntQ:Lower
+        END 
+AlphaQ  QUEUE(FindQ),PRE(AlpQ)  
+        END       
+CountQ  QUEUE(FindQ),PRE(CntQ)  
+        END 
+Unique1Cnt LONG    
+Unique3Cnt LONG   
 
-!#################################################################################### 
- 
+Window WINDOW('Find Patterns'),AT(,,310,220),GRAY,SYSTEM,MAX,FONT('Segoe UI',10),RESIZE
+        ENTRY(@s255),AT(3,2,,10),FULL,USE(?XmlFN),SKIP,TRN,READONLY
+        STRING(@n6),AT(121,15,30),USE(Unique1Cnt),TRN,RIGHT
+        STRING(@n6),AT(121,24,30),USE(Unique3Cnt),TRN,RIGHT
+        STRING('Unique Strings'),AT(155,15),USE(?Unique1:pmt),TRN
+        STRING('Unique Count >= 3'),AT(155,24),USE(?Unique3:pmt),TRN
+        SHEET,AT(1,17),FULL,USE(?SHEET1)
+            TAB(' MRU '),USE(?TAB1)
+                LIST,AT(1,36),FULL,USE(?LIST:FindQ),VSCROLL,VCR,FROM(FindQ),FORMAT('28L(2)|FM~MRU~C(0)@n6@28L(2)|FM~Coun' & |
+                        't~C(0)@n6@28L(2)F~String - Ctrl+C to Copy~@s48@?'),ALRT(CtrlC)
+            END
+            TAB(' Alpha '),USE(?TAB2)
+                LIST,AT(1,36),FULL,USE(?LIST:AlphaQ),VSCROLL,VCR,FROM(AlphaQ),ALRT(CtrlC)
+            END
+            TAB(' Count '),USE(?TAB3)
+                LIST,AT(1,36),FULL,USE(?LIST:CountQ),VSCROLL,VCR,FROM(CountQ),ALRT(CtrlC)
+            END
+        END
+    END
+    
+DDD     CLASS
+LoadQueue   PROCEDURE(),STRING
+BuidCounts  PROCEDURE() 
+CopyLine    PROCEDURE(FindQ TheQue, LONG ListFEQ) 
+        END 
+FailMsg STRING(500)  
+WP      LONG,DIM(4),STATIC 
+PrvCls  CBWndPreviewClass
+    CODE
+    FailMsg = DDD.LoadQueue()
+    IF FailMsg THEN 
+        Message('Failed File: ' & CLIP(pClaPropXmlFN) & '||' & FailMsg,'Find List View')
+        RETURN
+    END
+    DDD.BuidCounts()
+    OPEN(Window)
+    IF WP[4] THEN SETPOSITION(0,WP[1],WP[2],WP[3],WP[4]). 
+    PrvCls.Init()
+    ?XmlFN{PROP:Use}=pClaPropXmlFN
+    ?SHEET1{PROP:NoTheme}=1
+    ?Sheet1{PROP:TabSheetStyle}=1 
+    ?LIST:AlphaQ{PROP:Format} = ?LIST:FindQ{PROP:Format}
+    ?LIST:CountQ{PROP:Format} = ?LIST:FindQ{PROP:Format} 
+    ?SHEET1{PROP:NoSheet}=1
+    ?SHEET1{PROP:Below}=1   
+    0{PROP:Text}=ltPatternsElement &' Patterns>  '& RECORDS(FindQ) &' Strings'
+    ACCEPT 
+        CASE EVENT()
+        OF Event:AlertKey 
+           IF KEYCODE()=CtrlC THEN 
+              EXECUTE CHOICE(?SHEET1)
+                DDD.CopyLine(FindQ ,?List:FindQ)
+                DDD.CopyLine(AlphaQ,?List:AlphaQ)
+                DDD.CopyLine(CountQ,?List:CountQ)
+              END
+           END
+        END
+    END 
+    GETPOSITION(0,WP[1],WP[2],WP[3],WP[4])
+    CLOSE(Window) 
+    RETURN
+!------------  
+DDD.CopyLine  PROCEDURE(FindQ TheQue, LONG ListFEQ)
+    CODE 
+    GET(TheQue, CHOICE(ListFEQ))
+    SETCLIPBOARD(FindQ.What)
+!------------
+DDD.BuidCounts  PROCEDURE()
+QX  LONG
+    CODE
+    CLEAR(CountQ)
+    CntQ:Lower='<0,255,0>'                  !Build Count Q from FindQ
+    Sort(FindQ,FndQ:Lower,FndQ:MRU)         !Find the counts in Alpha Order
+    LOOP QX=1 TO RECORDS(FindQ)
+        GET(FindQ,QX)
+        IF CntQ:Lower <> FndQ:Lower THEN   !Cnt already loaded
+           CountQ = FindQ
+           CntQ:Count = 1
+           CntQ:What[1]=UPPER(CntQ:What[1])
+           ADD(CountQ,CntQ:Lower)
+        ELSE
+           CntQ:Count += 1
+           PUT(CountQ)
+        END
+    END
+    !----Now Counts are in Alpha Order, and FindQ also ----
+    CntQ:Lower='<0,255,0>'
+    LOOP QX=1 TO RECORDS(FindQ)             !Count and Find in Alpha right now
+        GET(FindQ,QX)
+        IF FndQ:Lower <> CntQ:Lower THEN    !Cnt already loaded
+           CntQ:Lower = FndQ:Lower
+           GET(CountQ,CntQ:Lower)
+           IF ERRORCODE() THEN
+              SETCLIPBOARD(FndQ:Lower)
+              STOP('BuidCounts  QX=' & QX &' MRU=' & FndQ:MRU &'  GET(CountQ,CntQ:Lower)   Lower=' & CntQ:Lower)
+           END
+        END
+        FndQ:Count = CntQ:Count
+        PUT(FindQ)
+    END
+
+    Unique1Cnt = RECORDS(CountQ)
+    LOOP QX=RECORDS(CountQ) TO 1 BY -1   !Just Keep Counts 2 +
+        GET(CountQ,QX)
+        IF CntQ:Count < 3 THEN
+           DELETE(CountQ)
+        ELSE
+           AlphaQ = CountQ
+           ADD(AlphaQ,1)    !Count in Alpha right now
+        END
+    END
+    Unique3Cnt = RECORDS(CountQ)
+
+    SORT(FindQ, FndQ:MRU)                ! ;  PrvCls.QueueReflection(FindQ,'FindQ')
+    SORT(AlphaQ,AlpQ:Lower,-AlpQ:Count)
+    SORT(CountQ,-CntQ:Count,CntQ:Lower)  ! ;  PrvCls.QueueReflection(CountQ,'CountQ')
+    RETURN
+!------------
+DDD.LoadQueue   PROCEDURE()!,BOOL
+FindCln     CbFindCleanClass
+RetBool     BOOL
+Pos1        LONG
+Pos2        LONG
+Beg1        LONG
+X           LONG
+MruSeq      LONG
+sDelim  EQUATE('<0C3h,0BFh>')
+    CODE
+    IF ~FindCln.FileLoad(pClaPropXmlFN,1) THEN
+        RETURN  'Error Load: ' & FindCln.LastError
+    END
+    !Code from CleanXmlFindPattern(). should have made that do this?
+    IF ~FindCln.FindXmlElement(ltPatternsElement,Pos1,Pos2) THEN            !Test no <FindPatterns
+          RETURN 'Did not find "' & ltPatternsElement &'"'
+    ELSIF ~FindCln.FindXmlAttribute(ltPatternsElement,'value',Pos1,Pos2) THEN  !Test no value= in <Find
+          RETURN 'No value= in "' & ltPatternsElement &'"'
+    ELSIF Pos1 < 1 OR Pos1 > Pos2 OR Pos2 > FindCln.XmlLen OR Pos2 - Pos1 < 4 THEN
+          RETURN 'Invalid Slice [ ' & Pos1 &' : '& Pos2 &' ]'
+    END
+    Pos2 += 2                               !HACK put Delim at end over what should be " />
+    FindCln.XmlStr[ Pos2-1 : Pos2 ]=sDelim  !     so split easier
+    !FindCln.ViewSlice(FindCln.XmlStr,Pos1,Pos2,'Slice of ' & ltPatternsElement )  !Debug see Slice
+
+    CLEAR(FindQ)    !Find Slices ending with Delim and add to Queue
+    Beg1 = Pos1
+    LOOP X=Pos1+1 TO Pos2-1
+         IF FindCln.XmlStr[ X : X+1 ] = sDelim THEN
+            IF X-1 >= Beg1 THEN
+               !"&" only-->  c#=INSTRING('&',FindCln.XmlStr[ Beg1 : X-1 ] )
+               XmlUnEscape(FindCln.XmlStr[ Beg1 : X-1 ], 0)  !0=Use SIZE
+               FndQ:What = LEFT(FindCln.XmlStr[ Beg1 : X-1 ])
+               FndQ:Lower=lower(FndQ:What)
+               MruSeq += 1
+               FndQ:MRU = MruSeq
+               !FndQ:What='['& Beg1 &':'& X-1 &'] '& FndQ:What  !Debug slice
+               ADD(FindQ)
+               !  if c# THEN ADD(FindQ).  !<-- see & only
+            END
+            X += 1
+            Beg1 = X+1
+         END
+    END
+    RETURN('')     !Load good
+
 !====================================================================================    
 !Below code from: https://github.com/CarlTBarnes/Clarion-Root-Find
 GetRegistryInstallsOfCW      PROCEDURE(QUEUE Cla_Queue, *STRING ClaQ_RootPath,<*STRING ClaQ_ClarionName>,<*DECIMAL ClaQ_VersioNo>)
@@ -864,9 +1059,26 @@ SOFTWARE_SoftVelocity EQUATE('SOFTWARE\SoftVelocity')
 ExplorerOpen  Procedure(STRING FolderName)
     CODE
     IF ~EXISTS(FolderName) THEN |
-        Message('Folder does not exist:||' & FolderName, 'ExplorerOpen') . 
-    RUN('Explorer.exe /e,"' & CLIP(FolderName) &'"')
+        Message('Folder does not exist:||' & FolderName, 'ExplorerOpen')
+    ELSE 
+        RUN('Explorer.exe /e,"' & CLIP(FolderName) &'"')
+    END
     RETURN  
+NotepadOpen Procedure(STRING pFileName) 
+NotepadEXE  CSTRING(300),AUTO
+    CODE
+    IF ~EXISTS(pFileName) THEN |
+        Message('File does not exist:||' & pFileName, 'NotepadOpen')
+    ELSE 
+        !Stick your Editor Exe in .INI [Config] Notepad=x:\xxx 
+        NotepadEXE=CLIP(GETINI('Config','Notepad','Notepad.exe',SettingFile))
+        RUN(NotepadEXE & ' "' & CLIP(pFileName) &'"')
+        IF ERRORCODE() THEN  
+           Message('Run Error ' & ERRORCODE() &' '& ERROR() & |
+                   '||Editor: ' & NotepadEXE & '||File: ' & pFileName,'NotepadOpen')
+        END
+    END
+    RETURN     
 !=====================================
 GetFileDateTimeSize PROCEDURE(STRING pFileName,<*LONG outDate>,<*LONG outTime>,<*LONG outSize>)!,BOOL
 DirQ    QUEUE(FILE:Queue),PRE(DirQ)
@@ -913,6 +1125,35 @@ DbgClear CSTRING('DBGVIEWCLEAR')    !Message to Clear the buffer. Must UPPER and
     CODE 
     OutputDebugString(DbgClear)     !Cannot have Prefix, must be first .. so call API directly
 !==============================================
+XmlUnEscape PROCEDURE(*STRING pXML, BYTE pClip=1)!,LONG,PROC   !Returns Change Out
+LenXml LONG,AUTO
+EscNdx LONG,AUTO
+X      LONG,AUTO
+ChangeCnt LONG
+SemiPos   LONG
+    CODE   
+    LenXml=CHOOSE(~pClip, SIZE(pXML), LEN(CLIP(pXML)) ) 
+    LOOP X = LenXml TO 1 BY -1  !Work backwards thru string in place
+        CASE pXML[X]
+        OF ';' ; SemiPos=X      ! &amp; ends with ;
+        OF '&'                  ! &amp; begins with &
+           IF SemiPos AND INRANGE(SemiPos-X+1, 3,6) THEN    ! 123           ! 123456
+              EscNdx=INLIST(pXML[X : SemiPos],'&amp;','&lt;','&gt;','&apos;','&quot;') 
+              IF EscNdx THEN                 !   &       <     >       '        "
+                 pXML[X] = SUB('&<<>''"',EscNdx,1) 
+                 IF SemiPos+1 > LenXml THEN   !&xxx; was last in String?
+                    pXML[X+1 : LenXml] = ''   !Blank end of String after &
+                 ELSE                         !else shift back string
+                    pXML[X+1 : LenXml] = pXML[SemiPos+1 : LenXml]
+                 END
+                 ChangeCnt+=1
+              END 
+           END !If SemiPos   
+           SemiPos=0
+        END !Case Chr
+    END     !Loop
+    RETURN ChangeCnt 
+!==============================================
 SetAboutText PROCEDURE(LONG AboutFEQ)
 AboutTxt STRING('The Clarion Editor Find/Replace dialog saves the text you enter in ClarionProperties.xml ' &|
      'file as <<FindPatterns value=""> and <<ReplacePatterns value="">. These are never purged ' &|
@@ -948,5 +1189,5 @@ AboutTxt STRING('The Clarion Editor Find/Replace dialog saves the text you enter
      'I was pleased this was also fixed by shrinking the size. ' ),STATIC
     CODE 
     AboutFEQ{PROP:Use}=AboutTxt
-    RETURN  
-    
+    RETURN 
+!------------------------------------------------------
