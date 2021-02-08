@@ -54,6 +54,7 @@ NotepadOpen         PROCEDURE(STRING FileName)
 GetRegistryInstallsOfCW  PROCEDURE(QUEUE ClarionQ, *STRING ClaQ_RootPath, <*STRING ClaQ_ClarionName>, <*DECIMAL ClaQ_VersioNo>)
 GetFileDateTimeSize PROCEDURE(STRING inFileName,<*LONG outDate>,<*LONG outTime>,<*LONG outSize>),BOOL
 GetSpecialFolder    PROCEDURE(LONG CDSL),STRING 
+ListHeaderColor     PROCEDURE(LONG ListFEQ)
 SetAboutText        PROCEDURE(LONG AboutFEQ) 
 XmlUnEscape         PROCEDURE(*STRING InOutXML, BYTE Clip1_Size0=1),LONG,PROC   !Returns Change Out
      MODULE('Windows')
@@ -711,13 +712,7 @@ Fld LONG
         Fld=0{PROP:NextField,Fld} ; IF ~Fld THEN BREAK.
         CASE Fld{PROP:Type}
         OF CREATE:list  
-            !With Manifest and Windows 10 the header is White like Data so Color it 
-           !?List:CleanQ{PROP:NoTheme}=True  !Remove theme for old look ... or better colors below?
-         !  Fld{PROPLIST:DefHdrBackColor} = COLOR:GradientInactiveCaption  !too Blue?
-         !  Fld{PROPLIST:DefHdrTextColor} = COLOR:INACTIVECAPTIONTEXT
-         !  Fld{PROPLIST:DefHdrBackColor} = COLOR:BTNFACE                !Same as Window
-           Fld{PROPLIST:DefHdrBackColor} = COLOR:3DLight                 !Just right :) a bit darker
-           Fld{PROPLIST:DefHdrTextColor} = COLOR:BTNTEXT
+           ListHeaderColor(Fld)  !Fix Manifest Header White
          !  Fld{PROP:LineHeight} = Fld{PROP:LineHeight} + 1    fine w/o space
            CASE Fld
            OF ?LIST:ClarionInstallQ 
@@ -894,35 +889,40 @@ OpenFN  STRING(260)
 !===================================================================================
 CleanViewPatterns     Procedure(STRING pClaPropXmlFN, STRING ltPatternsElement) 
 !Simple idea view the Find strings. Looking at 7000 strings useless... so more work later have Unique 
-FindQ   QUEUE,PRE(FndQ)  ! FindQ         AlphaQ       CountQ
-MRU          LONG        ! FndQ:MRU      AlpQ:MRU     CntQ:MRU
-Count        LONG        ! FndQ:Count    AlpQ:Count   CntQ:Count
-What         STRING(48)  ! FndQ:What     AlpQ:What    CntQ:What 
-Lower        STRING(48)  ! FndQ:Lower    AlpQ:Lower   CntQ:Lower
+FindQ   QUEUE,PRE(FndQ)  ! FindQ        AlMruQ      CountQ      AlphaQ    
+MRU          LONG        ! FndQ:MRU    AruQ::MRU    CntQ:MRU    AlpQ:MRU  
+Count        LONG        ! FndQ:Count  AruQ::Count  CntQ:Count  AlpQ:Count
+What         STRING(32)  ! FndQ:What   AruQ::What   CntQ:What   AlpQ:What 
+Lower        STRING(32)  ! FndQ:Lower  AruQ::Lower  CntQ:Lower  AlpQ:Lower
         END 
-AlphaQ  QUEUE(FindQ),PRE(AlpQ)  
-        END       
+AlMruQ  QUEUE(FindQ),PRE(AruQ)  !MRU in Alpha Order
+        END        
 CountQ  QUEUE(FindQ),PRE(CntQ)  
+        END 
+AlphaQ  QUEUE(FindQ),PRE(AlpQ)  !Counts in Alpha Order
         END 
 Unique1Cnt LONG    
 Unique3Cnt LONG   
 
-Window WINDOW('Find Patterns'),AT(,,310,220),GRAY,SYSTEM,MAX,FONT('Segoe UI',10),RESIZE
+Window WINDOW('Find Patterns'),AT(,,310,220),GRAY,SYSTEM,MAX,FONT('Segoe UI',10),RESIZE,ICON(ICON:Clarion)
         ENTRY(@s255),AT(3,2,,10),FULL,USE(?XmlFN),SKIP,TRN,READONLY
         STRING(@n6),AT(121,15,30),USE(Unique1Cnt),TRN,RIGHT
         STRING(@n6),AT(121,24,30),USE(Unique3Cnt),TRN,RIGHT
         STRING('Unique Strings'),AT(155,15),USE(?Unique1:pmt),TRN
         STRING('Unique Count >= 3'),AT(155,24),USE(?Unique3:pmt),TRN
         SHEET,AT(1,17),FULL,USE(?SHEET1)
-            TAB(' MRU '),USE(?TAB1)
+            TAB(' MRU '),USE(?TAB:Mru),TIP('Most Recently Used')
                 LIST,AT(1,36),FULL,USE(?LIST:FindQ),VSCROLL,VCR,FROM(FindQ),FORMAT('28L(2)|FM~MRU~C(0)@n6@28L(2)|FM~Coun' & |
-                        't~C(0)@n6@28L(2)F~String - Ctrl+C to Copy~@s48@?'),ALRT(CtrlC)
+                        't~C(0)@n6@28L(2)F~String - Ctrl+C to Copy~@s32@?'),ALRT(CtrlC)
             END
-            TAB(' Alpha '),USE(?TAB2)
-                LIST,AT(1,36),FULL,USE(?LIST:AlphaQ),VSCROLL,VCR,FROM(AlphaQ),ALRT(CtrlC)
+            TAB(' ARU '),USE(?TAB:ARU),TIP('MRU in Alpha Order')
+                LIST,AT(1,36),FULL,USE(?LIST:AlMruQ),VSCROLL,VCR,FROM(AlMruQ),ALRT(CtrlC)
             END
-            TAB(' Count '),USE(?TAB3)
+            TAB(' Count '),USE(?TAB:Cnt),TIP('Count Summary of Unique Searches')
                 LIST,AT(1,36),FULL,USE(?LIST:CountQ),VSCROLL,VCR,FROM(CountQ),ALRT(CtrlC)
+            END
+            TAB(' Alpha '),USE(?TAB:Alpha),TIP('Count Summary in Alpha Order')
+                LIST,AT(1,36),FULL,USE(?LIST:AlphaQ),VSCROLL,VCR,FROM(AlphaQ),ALRT(CtrlC)
             END
         END
     END
@@ -931,6 +931,7 @@ DDD     CLASS
 LoadQueue   PROCEDURE(),STRING
 BuidCounts  PROCEDURE() 
 CopyLine    PROCEDURE(FindQ TheQue, LONG ListFEQ) 
+ListInit    PROCEDURE(LONG ListFEQ)
         END 
 FailMsg STRING(500)  
 WP      LONG,DIM(4),STATIC 
@@ -948,8 +949,10 @@ PrvCls  CBWndPreviewClass
     ?XmlFN{PROP:Use}=pClaPropXmlFN
     ?SHEET1{PROP:NoTheme}=1
     ?Sheet1{PROP:TabSheetStyle}=1 
-    ?LIST:AlphaQ{PROP:Format} = ?LIST:FindQ{PROP:Format}
-    ?LIST:CountQ{PROP:Format} = ?LIST:FindQ{PROP:Format} 
+    ListHeaderColor(?LIST:FindQ)
+    DDD.ListInit(?LIST:AlMruQ)
+    DDD.ListInit(?LIST:AlphaQ)
+    DDD.ListInit(?LIST:CountQ)
     ?SHEET1{PROP:NoSheet}=1
     ?SHEET1{PROP:Below}=1   
     0{PROP:Text}=ltPatternsElement &' Patterns>  '& RECORDS(FindQ) &' Strings'
@@ -959,8 +962,9 @@ PrvCls  CBWndPreviewClass
            IF KEYCODE()=CtrlC THEN 
               EXECUTE CHOICE(?SHEET1)
                 DDD.CopyLine(FindQ ,?List:FindQ)
+                DDD.CopyLine(AlMruQ,?List:AlMruQ)
+                DDD.CopyLine(CountQ,?List:CountQ) 
                 DDD.CopyLine(AlphaQ,?List:AlphaQ)
-                DDD.CopyLine(CountQ,?List:CountQ)
               END
            END
         END
@@ -973,17 +977,23 @@ DDD.CopyLine  PROCEDURE(FindQ TheQue, LONG ListFEQ)
     CODE 
     GET(TheQue, CHOICE(ListFEQ))
     SETCLIPBOARD(FindQ.What)
+!------------  
+DDD.ListInit  PROCEDURE(LONG ListFEQ)
+    CODE
+    ListHeaderColor(ListFEQ)
+    ListFEQ{PROP:Format} = ?LIST:FindQ{PROP:Format}
 !------------
 DDD.BuidCounts  PROCEDURE()
 QX  LONG
     CODE
     CLEAR(CountQ)
-    CntQ:Lower='<0,255,0>'                  !Build Count Q from FindQ
-    Sort(FindQ,FndQ:Lower,FndQ:MRU)         !Find the counts in Alpha Order
-    LOOP QX=1 TO RECORDS(FindQ)
-        GET(FindQ,QX)
-        IF CntQ:Lower <> FndQ:Lower THEN   !Cnt already loaded
-           CountQ = FindQ
+    CntQ:Lower='<0,255,0>'                  !Build Count Q from FindQ 
+    SORT(FindQ, FndQ:MRU)                
+    SORT(AlMruQ,AruQ:Lower,AruQ:MRU)        !Find the counts in Alpha Order
+    LOOP QX=1 TO RECORDS(AlMruQ)
+        GET(AlMruQ,QX)
+        IF CntQ:Lower <> AruQ:Lower THEN   !Cnt already loaded
+           CountQ = AlMruQ
            CntQ:Count = 1
            CntQ:What[1]=UPPER(CntQ:What[1])
            ADD(CountQ,CntQ:Lower)
@@ -992,19 +1002,22 @@ QX  LONG
            PUT(CountQ)
         END
     END
-    !----Now Counts are in Alpha Order, and FindQ also ----
+    !----Now Counts are in Alpha Order ----
     CntQ:Lower='<0,255,0>'
-    LOOP QX=1 TO RECORDS(FindQ)             !Count and Find in Alpha right now
-        GET(FindQ,QX)
-        IF FndQ:Lower <> CntQ:Lower THEN    !Cnt already loaded
-           CntQ:Lower = FndQ:Lower
+    LOOP QX=1 TO RECORDS(AlMruQ)             !Count and Find in Alpha right now
+        GET(AlMruQ,QX)
+        IF AruQ:Lower <> CntQ:Lower THEN    !Cnt already loaded
+           CntQ:Lower = AruQ:Lower
            GET(CountQ,CntQ:Lower)
            IF ERRORCODE() THEN
-              SETCLIPBOARD(FndQ:Lower)
-              STOP('BuidCounts  QX=' & QX &' MRU=' & FndQ:MRU &'  GET(CountQ,CntQ:Lower)   Lower=' & CntQ:Lower)
+              SETCLIPBOARD(AruQ:Lower)
+              STOP('BuidCounts  QX=' & QX &' MRU=' & AruQ:MRU &'  GET(CountQ,CntQ:Lower)   Lower=' & CntQ:Lower)
            END
         END
-        FndQ:Count = CntQ:Count
+        AruQ:Count = CntQ:Count
+        PUT(AlMruQ)
+        GET(FindQ, 0+AruQ:MRU)    !+0 flags MRU is Record Number in Find
+        FndQ:Count = AruQ:Count
         PUT(FindQ)
     END
 
@@ -1019,8 +1032,6 @@ QX  LONG
         END
     END
     Unique3Cnt = RECORDS(CountQ)
-
-    SORT(FindQ, FndQ:MRU)                ! ;  PrvCls.QueueReflection(FindQ,'FindQ')
     SORT(AlphaQ,AlpQ:Lower,-AlpQ:Count)
     SORT(CountQ,-CntQ:Count,CntQ:Lower)  ! ;  PrvCls.QueueReflection(CountQ,'CountQ')
     RETURN
@@ -1064,6 +1075,7 @@ sDelim  EQUATE('<0C3h,0BFh>')
                !FndQ:What='['& Beg1 &':'& X-1 &'] '& FndQ:What  !Debug slice
                ADD(FindQ)
                !  if c# THEN ADD(FindQ).  !<-- see & only
+               AlMruQ=FindQ ; ADD(AlMruQ)
             END
             X += 1
             Beg1 = X+1
@@ -1197,6 +1209,16 @@ SemiPos   LONG
         END !Case Chr
     END     !Loop
     RETURN ChangeCnt 
+!============================================== 
+ListHeaderColor PROCEDURE(LONG ListFEQ)
+    CODE !With Manifest and Windows 10 the header is White like Data so Color it 
+    ListFEQ{PROPLIST:DefHdrBackColor} = COLOR:3DLight                 !Just right :) a bit darker
+    ListFEQ{PROPLIST:DefHdrTextColor} = COLOR:BTNTEXT
+    RETURN    
+    ! ListFEQ{PROP:NoTheme}=True  !Remove theme for old look ... or better colors below?
+   ! ListFEQ{PROPLIST:DefHdrBackColor} = COLOR:GradientInactiveCaption  !too Blue?
+   ! ListFEQ{PROPLIST:DefHdrTextColor} = COLOR:INACTIVECAPTIONTEXT
+   ! ListFEQ{PROPLIST:DefHdrBackColor} = COLOR:BTNFACE                !Same as Window
 !==============================================
 SetAboutText PROCEDURE(LONG AboutFEQ)
 AboutTxt STRING('The Clarion Editor Find/Replace dialog saves the text you enter in ClarionProperties.xml ' &|

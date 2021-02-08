@@ -41,6 +41,10 @@ The first tab has a right click popup with options.
 
 ![tab Cln RM](images/tabCleanRtClick.png)
 
+My history shows I searched "Validate" 72 times. Looking by Alpha counts shows other variations of "Validate".
+ The MRU shows in recent order. ARU by Alpha then Recent shows many variatons.
+![tab Cln RM](images/ViewFind.png)
+
 One reason I wrote this is I thought it might be useful to have code to find all the Clarion Installs and Configurations.
  If you use code in this repo Please let me know how you used it?
 
