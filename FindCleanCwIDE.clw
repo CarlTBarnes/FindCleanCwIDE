@@ -155,31 +155,32 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                         'M~Bytes~C(0)@n7@/24R(2)|_M@n4b@Q''Replace Count After''34R(2)|_M@n7b@]|~Replace Pattrns<13,10>B' & |
                         'efore/After~[257L(2)P~Delete Key will remove rows to omit from shrink<13,10>Path  -  Double Cli' & |
                         'ck to Open - Right Click for Options~@s255@Z(1)/257R(2)_P~Clean message~@s255@]'),ALRT(DeleteKey)
-                BUTTON('Query'),AT(10,32,54,16),USE(?QueryBtn),ICON(ICON:Zoom),TIP('Scan the files and show pattern counts'), |
+                BUTTON('Query'),AT(10,32,52,16),USE(?QueryBtn),ICON(ICON:Zoom),TIP('Scan the files and show pattern counts'), |
                         LEFT
-                PROMPT('Maximum Count:'),AT(77,30,58),USE(?Glo:MaxPatterns:Prompt),TRN,RIGHT
-                ENTRY(@n3),AT(138,30,19,9),USE(Glo:MaxPatterns),CENTER,TIP('When count is >= Maximum<13,10>then reduce t' & |
+                PROMPT('Maximum Count:'),AT(72,30,58),USE(?Glo:MaxPatterns:Prompt),TRN,RIGHT
+                ENTRY(@n3),AT(134,30,19,9),USE(Glo:MaxPatterns),CENTER,TIP('When count is >= Maximum<13,10>then reduce t' & |
                         'o "Shrink To"')
-                PROMPT('Shrink To Count:'),AT(77,41,58),USE(?Glo:MinPatterns:Prompt),TRN,RIGHT
-                ENTRY(@n3),AT(138,41,19,9),USE(Glo:MinPatterns),CENTER
-                BUTTON('Shrink Patterns'),AT(173,32,82,16),USE(?ShrinkBtn),ICON(ICON:Save),TIP('Shrink the patterns in t' & |
+                PROMPT('Shrink To Count:'),AT(72,41,58),USE(?Glo:MinPatterns:Prompt),TRN,RIGHT
+                ENTRY(@n3),AT(134,41,19,9),USE(Glo:MinPatterns),CENTER
+                BUTTON('Shrink Patterns'),AT(166,32,82,16),USE(?ShrinkBtn),ICON(ICON:Save),TIP('Shrink the patterns in t' & |
                         'he Cla Prop XML'),LEFT
-                CHECK('Write to Clarion Prop Xml'),AT(266,32),USE(WriteOK),FONT(,9),TIP('Check "Write to Clarion" ' & |
-                        ' to allow writing ClarionProperties.XML<13,10>with the "Shrink Patterns" for Find/Replace.<13><10,13,10>' & |
-                        'Two backup copies are kept with extension ".b4clean" to allow recovery.<13,10,13><10>To test th' & |
-                        'is tool check the "Write to Test Shrink" box<13,10>to instead write to file ClarionProperties.Xml.T' & |
-                        'estShrink ')
-                CHECK('Write to .TestShrink.Xml'),AT(266,40),USE(Glo:TestShrink),FONT(,9),TIP('Check to write shrunk' & |
-                        ' file to ClarionProperties.Xml.TestShrink.Xml<13,10><13,10>Compare the .TestShrink file to the ' & |
-                        'original .Xml to view changes.')
-                CHECK('Clarion IDE Closed ?'),AT(370,32),USE(IDEClosed),FONT(,9),TIP('All Clarion IDE''s updated mus' & |
-                        't be closed to "Shrink Patterns".<13,10><13,10>If Clarion is left open it will re-write the XML' & |
-                        ' file with the too BIG patterns when closed.<13,10><13,10>TestShrink can be written with Clario' & |
-                        'n open.')
-                CHECK('Capesoft StringTheory'),AT(370,40),USE(Glo:UseStringTheory),FONT(,9,095491FH,FONT:bold), |
+                BUTTON,AT(453,32,12,12),USE(?CopyCleanBtn),SKIP,ICON(ICON:Copy),TIP('Copy table tab delimited for paste ' & |
+                        'into Excel. <13,10>A way to log history'),FLAT
+                CHECK('Write to Clarion Prop Xml'),AT(260,32),USE(WriteOK),FONT(,9),TIP('Check "Write to Clarion"  to al' & |
+                        'low writing ClarionProperties.XML<13,10>with the "Shrink Patterns" for Find/Replace.<13><10,13>' & |
+                        '<10>Two backup copies are kept with extension ".b4clean" to allow recovery.<13,10,13><10>To tes' & |
+                        't this tool check the "Write to Test Shrink" box<13,10>to instead write to file ClarionProperti' & |
+                        'es.Xml.TestShrink ')
+                CHECK('Write to .TestShrink.Xml'),AT(260,40),USE(Glo:TestShrink),FONT(,9),TIP('Check to write shrunk fil' & |
+                        'e to ClarionProperties.Xml.TestShrink.Xml<13,10><13,10>Compare the .TestShrink file to the orig' & |
+                        'inal .Xml to view changes.')
+                CHECK('Clarion IDE Closed ?'),AT(361,32),USE(IDEClosed),FONT(,9),TIP('All Clarion IDE''s updated must be' & |
+                        ' closed to "Shrink Patterns".<13,10><13,10>If Clarion is left open it will re-write the XML fil' & |
+                        'e with the too BIG patterns when closed.<13,10><13,10>TestShrink can be written with Clarion open.')
+                CHECK('Capesoft StringTheory'),AT(361,40),USE(Glo:UseStringTheory),FONT(,9,095491FH,FONT:bold), |
                         TIP('Check for Geoff''s code using StringTheory from www.CapeSoft.com <13,10>Suggested for Devel' & |
                         'opers South of the Equator<13,10><13,10>Uncheck to use Carl''s code - "The Northern Solution"')
-     END
+            END
             TAB(' 1. AppData SoftVelocity '),USE(?TAB:AppData)
                 BOX,AT(9,18,457,10),USE(?Box_AppData),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
                 PROMPT('AppData Roaming is the default location the Clarion IDE saves ClarionProperties.Xml. The /Config' & |
@@ -250,6 +251,7 @@ LoadConfigDirTxt    PROCEDURE(BOOL ParseOnly=0) !Load ConfigDir.Txt with /Config
 LoadCleanQueue      PROCEDURE()                 !Load 1 Q of files to process from AppData and Cw Installs and ConfigDir
 LoadCleanQFrom1Q    PROCEDURE(AppDataSvQ Add1Q, STRING FromQName, BYTE From123 )  !Load Add1Q into CleanQ
 CleanTheFiles       PROCEDURE(BYTE pQuery)      !Scan CleanQ files and Shrink
+CopyCleanQ2Clip     PROCEDURE()
 ValidateParms       PROCEDURE()                 !Check Min/Max and maybe other are good
 YellowControl       PROCEDURE(LONG pFEQ, BOOL pOnOff=1)   !Make Checks Yellow to hightlight
       END
@@ -329,7 +331,8 @@ WinResize WindowResizeType
             DISPLAY
         OF ?Glo:MaxPatterns
             IF Glo:MaxPatterns < Glo:MinPatterns THEN Glo:MaxPatterns = Glo:MinPatterns + 20.
-            DISPLAY
+            DISPLAY 
+        OF ?CopyCleanBtn             ; DOO.CopyCleanQ2Clip()
         OF ?ConfigDirTxtReloadBtn    ; DOO.LoadConfigDirTxt(False) ; DISPLAY
         OF ?ConfigDirTxtNotepadBtn   ; RUN('Notepad ' & ConfigDir_Txt_FN)  
         OF ?ConfigDirTxtExploreBtn   ; ExplorerOpen(LongPath()) 
@@ -672,6 +675,29 @@ CleanOk    BOOL
     END 
     DISPLAY
     RETURN
+!=========================================
+DOO.CopyCleanQ2Clip     PROCEDURE()
+CB  ANY
+CpDate  STRING(10),AUTO
+CpTime  STRING(5),AUTO
+QNdx    LONG,AUTO 
+TB9     EQUATE('<9>')
+    CODE
+    CpDate=FORMAT(TODAY(),@d02) ; CpTime=FORMAT(CLOCK(),@t01) 
+    CB='Date<9>Time<9>FromQ<9>Folder<9>Find Cnt<9>Find Bytes<9>Repl Cnt<9>Repl Bytes<9>Path'
+    LOOP QNdx=1 TO RECORDS(CleanQ)
+        GET(CleanQ,QNdx)   
+        CB=CB & '<13,10>' & CpDate & Tb9 & CpTime & |
+           Tb9 & CLIP(CleanQ.FromQ)     & |
+           Tb9 & CLIP(CleanQ.SubFolder) & |
+           Tb9 & CleanQ.Find.CntIN      & |
+           Tb9 & CleanQ.Find.BytesOUT   & |
+           Tb9 & CleanQ.Repl.CntIN      & |
+           Tb9 & CleanQ.Repl.BytesIN    & |
+           Tb9 & '"'& CLIP(CleanQ.PathBS) &'"'
+    END
+    SETCLIPBOARD(CB)
+    RETURN             
 !=========================================
 DOO.WindowInitPretty PROCEDURE() 
 Fld LONG  
