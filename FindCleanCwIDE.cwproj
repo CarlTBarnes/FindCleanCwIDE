@@ -3,13 +3,14 @@
     <ProjectGuid>{17EA68A6-425D-47EF-899A-7B90ADEDDF4C}</ProjectGuid>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">Win32</Platform>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <RootNamespace>FindCleanCwIDE</RootNamespace>
     <AssemblyName>FindCleanCwIDE</AssemblyName>
     <OutputName>FindCleanCwIDE</OutputName>
     <stack_size>16384</stack_size>
     <CopyCore>True</CopyCore>
     <DefineConstants>StringTheoryLinkMode=&gt;1%3bStringTheoryDllMode=&gt;0</DefineConstants>
+    <Model>Lib</Model>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>True</DebugSymbols>
