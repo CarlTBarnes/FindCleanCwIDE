@@ -35,6 +35,12 @@ The Config tab is where you can list folders you use with the  Clarion.exe /Conf
  
 ![tab Cfg](images/tabConfig.png)
 
+The first tab has a right click popup with options.
+ You can view a list of prior search strings including a summary by count to see what was most popular.
+ The popup allows selecting others files to view to allow seeing a .b4clean file from before shrinking.
+
+![tab Cln RM](images/tabCleanRtClick.png)
+
 One reason I wrote this is I thought it might be useful to have code to find all the Clarion Installs and Configurations.
  If you use code in this repo Please let me know how you used it?
 

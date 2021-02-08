@@ -42,9 +42,10 @@ WndPrvCls   CBWndPreviewClass
              !-WndPrv-
   MAP
 FindCleanCwWindow   PROCEDURE()
-CleanClaPropXmlFile Procedure(STRING ClaPropFullName, BYTE pQuery, *ClnStatsType ClnStats, *STRING OutMsg ),BOOL
-CleanXmlFindPattern Procedure(CbFindCleanClass FindCln, STRING ltPatternsElement, BYTE pQuery, *IOStatsType IOStats, *STRING OutMsg ),BOOL
-CleanViewPatterns   Procedure(STRING ClaPropFullName, STRING ltPatternsElement)
+CleanClaPropXmlFile PROCEDURE(STRING ClaPropFullName, BYTE pQuery, *ClnStatsType ClnStats, *STRING OutMsg ),BOOL
+CleanXmlFindPattern PROCEDURE(CbFindCleanClass FindCln, STRING ltPatternsElement, BYTE pQuery, *IOStatsType IOStats, *STRING OutMsg ),BOOL
+CleanViewPatterns   PROCEDURE(STRING ClaPropFullName, STRING ltPatternsElement) 
+CleanViewSelectFile PROCEDURE()  !FileDialog to Pick the file to view
 
 DB                  PROCEDURE(STRING OutDebugMessage) 
 DBClear             PROCEDURE() 
@@ -153,7 +154,7 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                         'Count After''34R(2)|_M@n7b@]|~Find Patterns<13,10>Before/After~[24R(2)|M~Cnt~C(0)@n4@#9#34R(2)|' & |
                         'M~Bytes~C(0)@n7@/24R(2)|_M@n4b@Q''Replace Count After''34R(2)|_M@n7b@]|~Replace Pattrns<13,10>B' & |
                         'efore/After~[257L(2)P~Delete Key will remove rows to omit from shrink<13,10>Path  -  Double Cli' & |
-                        'ck to Open~@s255@Z(1)/257R(2)_P~Clean message~@s255@]'),ALRT(DeleteKey)
+                        'ck to Open - Right Click for Options~@s255@Z(1)/257R(2)_P~Clean message~@s255@]'),ALRT(DeleteKey)
                 BUTTON('Query'),AT(10,32,54,16),USE(?QueryBtn),ICON(ICON:Zoom),TIP('Scan the files and show pattern counts'), |
                         LEFT
                 PROMPT('Maximum Count:'),AT(77,30,58),USE(?Glo:MaxPatterns:Prompt),TRN,RIGHT
@@ -365,13 +366,15 @@ WinResize WindowResizeType
                                  '|Open XML in Notepad'   & |  !#2
                           '|-' & '|View Find Patterns'    & |  !#3
                                  '|View Replace Patterns' & |  !#4
-                          '|-' & '|Delete Row	Delete'   )    !#5
+                                 '|Select a File to View Patterns' & |  !#5
+                          '|-' & '|Delete Row	Delete'   )    !#6
                       
                        ExplorerOpen(CleanQ.PathBS)  ! #1
                        NotepadOpen(CleanQ.PathBS & ClarionProperties_xml)
                        START(CleanViewPatterns,,CleanQ.PathBS & ClarionProperties_xml,ltFindPatterns)
                        START(CleanViewPatterns,,CleanQ.PathBS & ClarionProperties_xml,ltReplacePatterns)
-                       DELETE(CleanQ)               ! # 5  Delete Row`Delete
+                       CleanViewSelectFile()
+                       DELETE(CleanQ)               ! # 6  Delete Row`Delete
                      END !EXECUTE Popup                 
               END
            END
@@ -718,7 +721,7 @@ ResizeFillBoth ROUTINE
     WinResize.SetStrategy(Fld, Resize:LockXPos+Resize:LockYPos, Resize:ConstantRight+Resize:ConstantBottom)
 ResizeFillWidth ROUTINE
     WinResize.SetStrategy(Fld, Resize:LockXPos+Resize:LockYPos, Resize:ConstantRight+Resize:LockHeight)
-    
+   
 !####################################################################################  
 SettingsCls.LoadAll  PROCEDURE()       !SettingFile  EQUATE('.\FndClnSettings.ini')
     CODE
@@ -847,6 +850,21 @@ Pos2        LONG
         END
     END
     RETURN RetBool
+!=================================================================================== 
+CleanViewSelectFile PROCEDURE()  !FileDialog to Pick the file to view
+OpenFN  STRING(260)
+    CODE  
+    IF ~FileDialog('View Find Patterns '& ClarionProperties_xml & ' File', |
+                    OpenFN, |
+                    'Cla Props XML|Cla*.XML;Cla*.b4clean?' & |
+                    '|B4Clean Backups|Cla*.b4clean?' & |
+                    '|TestShrink|*.TestShrink' & |
+                    '|XML Files|*.XML|All Files|*.*', |
+                    FILE:LongName + FILE:KeepDir) THEN RETURN.
+                        
+    IF START(CleanViewPatterns,,OpenFN,ltFindPatterns).
+    START(CleanViewPatterns,,OpenFN,ltReplacePatterns) 
+    RETURN 
 !===================================================================================
 CleanViewPatterns     Procedure(STRING pClaPropXmlFN, STRING ltPatternsElement) 
 !Simple idea view the Find strings. Looking at 7000 strings useless... so more work later have Unique 
