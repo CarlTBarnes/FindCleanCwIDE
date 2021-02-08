@@ -265,8 +265,8 @@ Put1    PROCEDURE(STRING EntryName, STRING SaveValue)
              END 
 WinResize WindowResizeType            
     CODE
-    SYSTEM{PROP:PropVScroll}=1
-    SYSTEM{PROP:MsgModeDefault}=MSGMODE:CANCOPY 
+    SYSTEM{7A58H}=1                 !C10 PROP:PropVScroll    EQUATE(7A58H)  ! boolean: kind of listbox vertical scrollbar
+    SYSTEM{7A7Dh}=MSGMODE:CANCOPY   !C11 PROP:MsgModeDefault EQUATE(7A7DH)  ! uint SYSTEM only, default value to be uysed in the MESSGE Style attribute when ommited
     SettingsCls.LoadAll()
     GetRegistryInstallsOfCW(ClarionInstallQ, ClaInstQ:Root, ClaInstQ:Clarion, ClaInstQ:VersionNo)
     SORT(ClarionInstallQ, -ClaInstQ:VersionNo, -ClaInstQ:Clarion, -ClaInstQ:Root )
@@ -729,9 +729,9 @@ Fld LONG
         OF CREATE:box 
            IF Fld{PROP:Fill}=COLOR:INACTIVECAPTION THEN 
               Fld{PROP:GradientType}=GradientTypes:Horizontal
-              Fld{PROP:GradientFromColor}=COLOR:GradientInactiveCaption  !Light color
-              Fld{PROP:GradientToColor}  =COLOR:InactiveCaption          !to Dark color
-              (Fld+1){PROP:FontColor}=COLOR:InactiveCaptionText          !Assume box before string
+              Fld{PROP:GradientFromColor}=8000001CH                 !Light color    C11 added COLOR:GradientInactiveCaption
+              Fld{PROP:GradientToColor}  =COLOR:InactiveCaption     !to Dark color
+              (Fld+1){PROP:FontColor}=COLOR:InactiveCaptionText     !Assume box before string
               DO ResizeFillWidth
            END    
            
@@ -1212,7 +1212,7 @@ SemiPos   LONG
 !============================================== 
 ListHeaderColor PROCEDURE(LONG ListFEQ)
     CODE !With Manifest and Windows 10 the header is White like Data so Color it 
-    ListFEQ{PROPLIST:DefHdrBackColor} = COLOR:3DLight                 !Just right :) a bit darker
+    ListFEQ{PROPLIST:DefHdrBackColor} = 80000016H    !C11 added COLOR:3DLight EQUATE(80000016H) !Light color for 3D display elements (edge facing light source)
     ListFEQ{PROPLIST:DefHdrTextColor} = COLOR:BTNTEXT
     RETURN    
     ! ListFEQ{PROP:NoTheme}=True  !Remove theme for old look ... or better colors below?
