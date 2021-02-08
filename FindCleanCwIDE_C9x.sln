@@ -1,0 +1,28 @@
+﻿Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+# Clarion 2.1.0.2447
+Project("{12B76EC0-1D7B-4FA7-A7D0-C524288B48A1}") = "FindCleanCwIDE", "FindCleanCwIDE.cwproj", "{17EA68A6-425D-47EF-899A-7B90ADEDDF4C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Included Source", "Included Source", "{C606FF18-5732-4B9B-B752-0EDF0050F608}"
+	ProjectSection(SolutionItems) = postProject
+		CbFindCleanCls.clw = CbFindCleanCls.clw
+		CbFindCleanCls.inc = CbFindCleanCls.inc
+		FindCleanCwIDE_ST.clw = FindCleanCwIDE_ST.clw
+		BigBangTheory.clw = BigBangTheory.clw
+		BigBangTheory.inc = BigBangTheory.inc
+		CBWndPreview.INC = CBWndPreview.INC
+		CBWndPreview.CLW = CBWndPreview.CLW
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{17EA68A6-425D-47EF-899A-7B90ADEDDF4C}.Debug|Win32.Build.0 = Debug|Win32
+		{17EA68A6-425D-47EF-899A-7B90ADEDDF4C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{17EA68A6-425D-47EF-899A-7B90ADEDDF4C}.Release|Win32.Build.0 = Release|Win32
+		{17EA68A6-425D-47EF-899A-7B90ADEDDF4C}.Release|Win32.ActiveCfg = Release|Win32
+	EndGlobalSection
+EndGlobal
