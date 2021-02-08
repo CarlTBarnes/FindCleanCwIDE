@@ -11,8 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Included Source", "Included
 		FindCleanCwIDE_ST.clw = FindCleanCwIDE_ST.clw
 		BigBangTheory.clw = BigBangTheory.clw
 		BigBangTheory.inc = BigBangTheory.inc
-		..\..\..\Clarion11\Accessory\libsrc\win\CBWndPreview.INC = ..\..\..\Clarion11\Accessory\libsrc\win\CBWndPreview.INC
-		..\..\..\Clarion11\Accessory\libsrc\win\CBWndPreview.CLW = ..\..\..\Clarion11\Accessory\libsrc\win\CBWndPreview.CLW
+		CBWndPreview.INC = CBWndPreview.INC
+		CBWndPreview.CLW = CBWndPreview.CLW
 	EndProjectSection
 EndProject
 Global
