@@ -11,6 +11,7 @@
     <CopyCore>True</CopyCore>
     <DefineConstants>StringTheoryLinkMode=&gt;1%3bStringTheoryDllMode=&gt;0</DefineConstants>
     <Model>Lib</Model>
+    <ApplicationIcon>FindCln.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>True</DebugSymbols>

@@ -144,7 +144,7 @@ NoShowAbout BYTE
 WriteOK     BYTE      
 IDEClosed   BYTE      
 Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml'),AT(,,476,203),GRAY,IMM,SYSTEM, |
-            ICON(ICON:Clarion),FONT('Segoe UI',10,,FONT:regular),RESIZE
+            ICON('FindCln.ico'),FONT('Segoe UI',10,,FONT:regular),RESIZE
         SHEET,AT(3,3,470,197),USE(?Sheet1)
             TAB(' ClarionProperties.Xml '),USE(?TAB:Clean)
                 BOX,AT(9,17,457,10),USE(?Box_Clean),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
@@ -904,7 +904,7 @@ AlphaQ  QUEUE(FindQ),PRE(AlpQ)  !Counts in Alpha Order
 Unique1Cnt LONG    
 Unique3Cnt LONG   
 
-Window WINDOW('Find Patterns'),AT(,,310,220),GRAY,SYSTEM,MAX,FONT('Segoe UI',10),RESIZE,ICON(ICON:Clarion)
+Window WINDOW('Find Patterns'),AT(,,310,220),GRAY,SYSTEM,MAX,FONT('Segoe UI',10),RESIZE,ICON('FindCln.ico')
         ENTRY(@s255),AT(3,2,,10),FULL,USE(?XmlFN),SKIP,TRN,READONLY
         STRING(@n6),AT(121,15,30),USE(Unique1Cnt),TRN,RIGHT
         STRING(@n6),AT(121,24,30),USE(Unique3Cnt),TRN,RIGHT
