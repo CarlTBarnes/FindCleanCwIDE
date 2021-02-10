@@ -1,3 +1,8 @@
 FindCleanCwIDE History
 
 02/03/21  First Release
+
+02/07/21  Right click on Clean List Popup Menu
+          View Find Strings in List on Popup
+
+02/10/21  Keep first clean as .b4CleanMax

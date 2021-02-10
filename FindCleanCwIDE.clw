@@ -632,16 +632,16 @@ QNdx    LONG,AUTO
 DOO.CleanListPopup PROCEDURE() !Rt Mouse Popup for Clean List
  
 RowFileName CSTRING(261)
-B4_FileName CSTRING(261),DIM(3) 
-B4_Stamp    PSTRING(32),DIM(3)
-B4_Tilde    PSTRING(2),DIM(3)
+B4_FileName CSTRING(261),DIM(4) 
+B4_Stamp    PSTRING(32),DIM(4)
+B4_Tilde    PSTRING(2),DIM(4)
 DateStamp   STRING(32)
 X   USHORT
     CODE
     SETKEYCODE(0)
     RowFileName = CleanQ.PathBS & ClarionProperties_xml
-    LOOP X=1 TO 3
-        B4_FileName[X]=RowFileName & CHOOSE(X,'.b4clean','.b4clean2','.old')
+    LOOP X=1 TO 4
+        B4_FileName[X]=RowFileName & CHOOSE(X,'.b4clean','.b4clean2','.b4cleanMax','.old')
         IF ~GetFileDateTimeSize(B4_FileName[X],,,,DateStamp) THEN 
            B4_Tilde[X]='~'
         ELSE
@@ -656,10 +656,11 @@ X   USHORT
                  '{{' & |
                       B4_Tilde[1] &'.B4 Clean  Backup' & B4_Stamp[1] & |  !#5
                  '|'& B4_Tilde[2] &'.B4 Clean2 Backup' & B4_Stamp[2] & |  !#6
-                 '|'& B4_Tilde[2] &'.Xml.Old IDE Copy' & B4_Stamp[3] & |  !#7
-           '|-'& '|Select File to View Patterns ...' & |  !#8
+                 '|'& B4_Tilde[3] &'.B4 CleanMax Save' & B4_Stamp[3] & |  !#7
+                 '|'& B4_Tilde[4] &'.Xml.Old IDE Copy' & B4_Stamp[4] & |  !#8
+           '|-'& '|Select File to View Patterns ...' & |  !#9
                  '}' & |
-          '|-'& '|Delete Row	Delete'   )    !#9
+          '|-'& '|Delete Row	Delete'   )    !#10
      
       ExplorerOpen(CleanQ.PathBS)  ! #1
       NotepadOpen(CleanQ.PathBS & ClarionProperties_xml)
@@ -668,6 +669,7 @@ X   USHORT
       CleanViewSelectFile(B4_FileName[1])  !#5
       CleanViewSelectFile(B4_FileName[2])
       CleanViewSelectFile(B4_FileName[3])
+      CleanViewSelectFile(B4_FileName[4])
       CleanViewSelectFile()
       DELETE(CleanQ)               ! # 9  Delete Row`Delete
     END !EXECUTE Popup 
@@ -819,9 +821,11 @@ CleanClaPropXmlFile Procedure(STRING pClaPropXmlFN, BYTE pQuery, *ClnStatsType C
 DidSaveOk   BOOL
 FindCln     CbFindCleanClass
 CleanCnt    LONG
-B4CleanName STRING(260)
+B4CleanName CSTRING(261)
+B4CleanMax  CSTRING(261)  !02/10/21 Keep the First Clean assume Maximi
     CODE
     B4CleanName=CLIP(pClaPropXmlFN) & '.b4clean'
+    B4CleanMax =CLIP(pClaPropXmlFN) & '.b4cleanMax'
     CLEAR(ClnStats)
     OutMsg=''
     IF ~FindCln.FileLoad(pClaPropXmlFN,CHOOSE(pQuery OR Glo:TestShrink) ) THEN
@@ -852,7 +856,12 @@ B4CleanName STRING(260)
     END
 
     !--- This is NOT a Test...so WRITE to real ClaProps.XML --------
-    COPY(B4CleanName,CLIP(B4CleanName) &'2')   !Save 2nd backup .b4clean2 
+    IF ~EXISTS(B4CleanMax) THEN         !02/10/21 No Max file? Keep First Clean as Max
+        COPY(pClaPropXmlFN   ,B4CleanMax)    !Save current file 
+        COPY(B4CleanName     ,B4CleanMax)    !I did this late so if there's a prior Clean
+        COPY(B4CleanName &'2',B4CleanMax)    !or 2 prior cleans
+    END
+    COPY(B4CleanName,B4CleanName &'2')   !Save 2nd backup .b4clean2 
     COPY(pClaPropXmlFN,B4CleanName)            !Save .b4clean backup with Copy
     IF ERRORCODE() THEN                        !Cannot Backup file?
        OutMsg='Error Copy .b4clean: ' & ErrorCode() &' '& Error()
@@ -909,8 +918,8 @@ OpenFN  STRING(260)
         OpenFN = pOpenFileName      
     ELSIF ~FileDialog('View Find Patterns '& ClarionProperties_xml & ' File', |
                     OpenFN, |
-                    'Cla Props XML|Cla*.XML;Cla*.b4clean?' & |
-                    '|B4Clean Backups|Cla*.b4clean?' & |
+                    'Cla Props XML|Cla*.XML;Cla*.b4clean*' & |
+                    '|B4Clean Backups|Cla*.b4clean*' & |
                     '|TestShrink|*.TestShrink' & |
                     '|XML Files|*.XML|All Files|*.*', |
                     FILE:LongName + FILE:KeepDir) THEN 
