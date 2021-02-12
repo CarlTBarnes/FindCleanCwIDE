@@ -16,9 +16,9 @@ valueEqQt               EQUATE('value="')
 PatternDelimC3BF        EQUATE('<0C3h,0BFh>')
 
 PatternQType QUEUE,TYPE
-WhatLen         BYTE
-WhatTxt         STRING(96)
-LowerTxt        STRING(96)
+WhatLen         BYTE        !PatQ:WhatLen
+WhatTxt         STRING(96)  !PatQ:WhatTxt
+LowerTxt        STRING(96)  !PatQ:LowerTxt
              END
 !----------------- CbFindCleanClass -----------------
 CbFindCleanClass    CLASS,TYPE,MODULE('CbFindCleanCls.CLW'),LINK('CbFindCleanCls.CLW',1),DLL(0)   !,_ABCLinkMode_),DLL(_ABCDllMode_)
@@ -56,6 +56,7 @@ FindXmlAttribute    PROCEDURE(STRING ltElementName, STRING AttribName, *LONG Out
                     !!!<summary>Verify Slice Begin/End is >0 and <= Xml length. To see a message pass 'ShowMsgIfBadSlice'.</summary><Returns>BOOL True if Slice Valid</Returns>
 SliceXmlIsOk        PROCEDURE(*LONG SliceBeg, *LONG SliceEnd, <STRING ShowMsgIfBadSlice>),BOOL
 
+XmlEscape           PROCEDURE(CONST *STRING InStrIng, *STRING OutXml, *LONG OutLength),BOOL,PROC !Returns False if Overrun
 XmlUnEscape         PROCEDURE(*STRING InOutXML, *LONG OutLen),LONG,PROC
 
 ViewString PROCEDURE(STRING StrValue, <STRING CapTxt>)

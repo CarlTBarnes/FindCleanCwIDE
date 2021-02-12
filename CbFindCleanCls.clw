@@ -379,6 +379,40 @@ P LONG,DIM(4),STATIC
   RETURN
 
 !==============================================
+CbFindCleanClass.XmlEscape   PROCEDURE(CONST *STRING pStr, *STRING pOutXml, *LONG OutLen)!,BOOL,PROC !Returns False if Overrun
+FitOutXmlOK BOOL,AUTO
+Token   PSTRING(7),AUTO 
+TokLen  BYTE,AUTO 
+InX     LONG,AUTO
+OutX    LONG,AUTO
+OutMax  LONG,AUTO
+    CODE
+    OutX=0 
+    FitOutXmlOK=1
+    OutMax = SIZE(pOutXml)
+    LOOP InX = 1 TO LEN(CLIP(pStr))
+         CASE VAL(pStr[InX])  
+         OF 60 ; Token= '&lt;'  
+         OF 62 ; Token= '&gt;'  
+         OF 38 ; Token= '&amp;' 
+         OF 39 ; Token= '&apos;'
+         OF 34 ; Token= '&quot;'
+         OF 0 TO 31 ; Token=' '      !Low Ascii make spaces
+         OF 60h ; Token=' '          !``` Grave Accent is space trailing space marker. TODO Caller handles?
+         ELSE           !123456
+            IF OutX >= OutMax THEN FitOutXmlOK = False  ; BREAK. !Out+1 > Max
+            OutX += 1
+            pOutXml[OutX] = pStr[Inx] 
+            CYCLE   !Cycle so do NOT fall thru, that's for Tokens 
+         END
+         TokLen=LEN(Token)
+         IF OutX + TokLen > OutMax THEN FitOutXmlOK = False  ; BREAK.
+         pOutXml[OutX+1 : OutX+TokLen ] = Token
+         OutX += TokLen
+    END 
+    OutLen=OutX 
+    return FitOutXmlOK 
+!==============================================
 CbFindCleanClass.XmlUnEscape PROCEDURE(*STRING pXML, *LONG OutLen)!,LONG,PROC   !Returns Change Out
 LenXml LONG,AUTO
 EscChr STRING(1),AUTO

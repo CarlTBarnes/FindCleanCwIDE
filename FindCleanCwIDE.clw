@@ -951,11 +951,11 @@ Window WINDOW('Find Patterns'),AT(,,310,220),GRAY,SYSTEM,MAX,ICON('FindCln.ico')
         STRING(@n6),AT(161,15,30),USE(Unique1Cnt),TRN,RIGHT
         STRING(@n6),AT(161,24,30),USE(Unique3Cnt),TRN,RIGHT
         STRING('Unique Strings'),AT(194,15),USE(?Unique1:pmt),TRN
-        STRING('Unique Count >= 3'),AT(194,24),USE(?Unique3:pmt),TRN 
+        STRING('Unique Count >= 3'),AT(194,24),USE(?Unique3:pmt),TRN
         SHEET,AT(1,17),FULL,USE(?SHEET1)
             TAB(' MRU '),USE(?TAB:Mru),TIP('Most Recently Used')
-                LIST,AT(1,36),FULL,USE(?LIST:FindQ),VSCROLL,VCR,FROM(FindQ),FORMAT('28L(2)|FM~MRU~C(0)@n6@28L(2)|FM~Coun' & |
-                        't~C(0)@n6@28L(2)F~String - Ctrl+C to Copy~@s96@?'),ALRT(CtrlC)
+                LIST,AT(1,36),FULL,USE(?LIST:FindQ),VSCROLL,VCR,FROM(FindQ),FORMAT('28L(2)|FM~MRU~C(' & |
+                        '0)@n6@28R(2)|FM~Count~C(0)@n5@28L(2)F~String - Ctrl+C to Copy~@s96@?'),ALRT(CtrlC)
             END
             TAB(' ARU '),USE(?TAB:ARU),TIP('MRU in Alpha Order')
                 LIST,AT(1,36),FULL,USE(?LIST:AlMruQ),VSCROLL,VCR,FROM(AlMruQ),ALRT(CtrlC)
