@@ -56,7 +56,6 @@ GetFileDateTimeSize PROCEDURE(STRING inFileName,<*LONG outDate>,<*LONG outTime>,
 GetSpecialFolder    PROCEDURE(LONG CDSL),STRING 
 ListHeaderColor     PROCEDURE(LONG ListFEQ)
 SetAboutText        PROCEDURE(LONG AboutFEQ) 
-XmlUnEscape         PROCEDURE(*STRING InOutXML, BYTE Clip1_Size0=1),LONG,PROC   !Returns Change Out
      MODULE('Windows')
         SHGetFolderPath(Long hwndOwner=0, LONG nFolder, Long hToken, Long dwFlags, *CSTRING pszPath),LONG,RAW,PASCAL,DLL(1),NAME('SHGetFolderPathA')
         OutputDebugString(*Cstring Msg),PASCAL,RAW,DLL(1),NAME('OutputDebugStringA')
@@ -65,10 +64,6 @@ XmlUnEscape         PROCEDURE(*STRING InOutXML, BYTE Clip1_Size0=1),LONG,PROC   
 
 !Region Global Data and Equates
 DbView                  SHORT(0)            !Open View String and debug Windows
-ClarionProperties_xml   EQUATE('ClarionProperties.xml')
-ltFindPatterns          EQUATE('<<FindPatterns')
-ltReplacePatterns       EQUATE('<<ReplacePatterns')
-valueEqQt               EQUATE('value="')
 SettingFile             EQUATE('.\FndClnSettings.ini')
 Glo:MaxPatterns     USHORT(50)      !When count is >= Max 
 Glo:MinPatterns     USHORT(25)      !  then reduce to Min
@@ -857,9 +852,10 @@ B4CleanMax  CSTRING(261)  !02/10/21 Keep the First Clean assume Maximi
 
     !--- This is NOT a Test...so WRITE to real ClaProps.XML --------
     IF ~EXISTS(B4CleanMax) THEN         !02/10/21 No Max file? Keep First Clean as Max
-        COPY(pClaPropXmlFN   ,B4CleanMax)    !Save current file 
-        COPY(B4CleanName     ,B4CleanMax)    !I did this late so if there's a prior Clean
-        COPY(B4CleanName &'2',B4CleanMax)    !or 2 prior cleans
+        COPY(pClaPropXmlFN   ,B4CleanMax)    !Save current file
+        !TODO remove below 2 copies June 2021 since everyone would be updated
+         COPY(B4CleanName     ,B4CleanMax)    !I did this late so if there's a prior Clean
+         COPY(B4CleanName &'2',B4CleanMax)    !or 2 prior cleans
     END
     COPY(B4CleanName,B4CleanName &'2')   !Save 2nd backup .b4clean2 
     COPY(pClaPropXmlFN,B4CleanName)            !Save .b4clean backup with Copy
@@ -931,11 +927,13 @@ OpenFN  STRING(260)
 !===================================================================================
 CleanViewPatterns     Procedure(STRING pClaPropXmlFN, STRING ltPatternsElement) 
 !Simple idea view the Find strings. Looking at 7000 strings useless... so more work later have Unique 
+PatternQ    QUEUE(PatternQType),PRE(PatQ)
+            END
 FindQ   QUEUE,PRE(FndQ)  ! FindQ        AlMruQ      CountQ      AlphaQ    
 MRU          LONG        ! FndQ:MRU    AruQ::MRU    CntQ:MRU    AlpQ:MRU  
 Count        LONG        ! FndQ:Count  AruQ::Count  CntQ:Count  AlpQ:Count
-What         STRING(32)  ! FndQ:What   AruQ::What   CntQ:What   AlpQ:What 
-Lower        STRING(32)  ! FndQ:Lower  AruQ::Lower  CntQ:Lower  AlpQ:Lower
+What         STRING(96)  ! FndQ:What   AruQ::What   CntQ:What   AlpQ:What 
+Lower        STRING(96)  ! FndQ:Lower  AruQ::Lower  CntQ:Lower  AlpQ:Lower
         END 
 AlMruQ  QUEUE(FindQ),PRE(AruQ)  !MRU in Alpha Order
         END        
@@ -953,11 +951,11 @@ Window WINDOW('Find Patterns'),AT(,,310,220),GRAY,SYSTEM,MAX,ICON('FindCln.ico')
         STRING(@n6),AT(161,15,30),USE(Unique1Cnt),TRN,RIGHT
         STRING(@n6),AT(161,24,30),USE(Unique3Cnt),TRN,RIGHT
         STRING('Unique Strings'),AT(194,15),USE(?Unique1:pmt),TRN
-        STRING('Unique Count >= 3'),AT(194,24),USE(?Unique3:pmt),TRN
+        STRING('Unique Count >= 3'),AT(194,24),USE(?Unique3:pmt),TRN 
         SHEET,AT(1,17),FULL,USE(?SHEET1)
             TAB(' MRU '),USE(?TAB:Mru),TIP('Most Recently Used')
                 LIST,AT(1,36),FULL,USE(?LIST:FindQ),VSCROLL,VCR,FROM(FindQ),FORMAT('28L(2)|FM~MRU~C(0)@n6@28L(2)|FM~Coun' & |
-                        't~C(0)@n6@28L(2)F~String - Ctrl+C to Copy~@s32@?'),ALRT(CtrlC)
+                        't~C(0)@n6@28L(2)F~String - Ctrl+C to Copy~@s96@?'),ALRT(CtrlC)
             END
             TAB(' ARU '),USE(?TAB:ARU),TIP('MRU in Alpha Order')
                 LIST,AT(1,36),FULL,USE(?LIST:AlMruQ),VSCROLL,VCR,FROM(AlMruQ),ALRT(CtrlC)
@@ -979,16 +977,17 @@ ListInit    PROCEDURE(LONG ListFEQ)
         END 
 FailMsg STRING(500)  
 WP      LONG,DIM(4),STATIC 
-PrvCls  CBWndPreviewClass
+PrvCls  CBWndPreviewClass     
     CODE
-    FailMsg = DDD.LoadQueue()
-    IF FailMsg THEN 
-        Message('Failed File: ' & CLIP(pClaPropXmlFN) & '||' & FailMsg,'Find List View')
-        RETURN
-    END
-    DDD.BuidCounts()
     OPEN(Window)
     IF WP[4] THEN SETPOSITION(0,WP[1],WP[2],WP[3],WP[4]). 
+    DISPLAY 
+    FailMsg = DDD.LoadQueue()
+    IF FailMsg THEN 
+        Message('Failed Load File: ' & CLIP(pClaPropXmlFN) & '||' & FailMsg,'Find List View')
+        RETURN
+    END
+    DDD.BuidCounts()    
     PrvCls.Init()
     ?XmlFN{PROP:Use}=pClaPropXmlFN
     ?SHEET1{PROP:NoTheme}=1
@@ -1000,7 +999,9 @@ PrvCls  CBWndPreviewClass
     ?SHEET1{PROP:NoSheet}=1
     ?SHEET1{PROP:Below}=1
     0{PROP:Text}=ltPatternsElement &' Patterns>  '& TotalCnt &' Strings'
-    ACCEPT 
+    ACCEPT  
+        CASE ACCEPTED()
+        END
         CASE EVENT()
         OF Event:AlertKey 
            IF KEYCODE()=CtrlC THEN 
@@ -1020,7 +1021,7 @@ PrvCls  CBWndPreviewClass
 DDD.CopyLine  PROCEDURE(FindQ TheQue, LONG ListFEQ)
     CODE 
     GET(TheQue, CHOICE(ListFEQ))
-    SETCLIPBOARD(FindQ.What)
+    SETCLIPBOARD(TheQue.What)
 !------------  
 DDD.ListInit  PROCEDURE(LONG ListFEQ)
     CODE
@@ -1032,7 +1033,6 @@ QX  LONG
     CODE
     CLEAR(CountQ)
     CntQ:Lower='<0,255,0>'                  !Build Count Q from FindQ 
-    SORT(FindQ, FndQ:MRU)                
     SORT(AlMruQ,AruQ:Lower,AruQ:MRU)        !Find the counts in Alpha Order
     LOOP QX=1 TO RECORDS(AlMruQ)
         GET(AlMruQ,QX)
@@ -1083,51 +1083,32 @@ QX  LONG
 !------------
 DDD.LoadQueue   PROCEDURE()!,BOOL
 FindCln     CbFindCleanClass
-RetBool     BOOL
+ErrorMsg    STRING(128)
 Pos1        LONG
 Pos2        LONG
-Beg1        LONG
 X           LONG
 MruSeq      LONG
-sDelim  EQUATE('<0C3h,0BFh>')
     CODE
     IF ~FindCln.FileLoad(pClaPropXmlFN,1) THEN
         RETURN  'Error Load: ' & FindCln.LastError
     END
-    !Code from CleanXmlFindPattern(). should have made that do this?
-    IF ~FindCln.FindXmlElement(ltPatternsElement,Pos1,Pos2) THEN            !Test no <FindPatterns
-          RETURN 'Did not find "' & ltPatternsElement &'"'
-    ELSIF ~FindCln.FindXmlAttribute(ltPatternsElement,'value',Pos1,Pos2) THEN  !Test no value= in <Find
-          RETURN 'No value= in "' & ltPatternsElement &'"'
-    ELSIF Pos1 < 1 OR Pos1 > Pos2 OR Pos2 > FindCln.XmlLen OR Pos2 - Pos1 < 4 THEN
-          RETURN 'Invalid Slice [ ' & Pos1 &' : '& Pos2 &' ]'
+    IF ~FindCln.FindXmlAttribute(ltPatternsElement,'value',Pos1,Pos2, ,,, ErrorMsg) THEN
+          IF ~ErrorMsg THEN ErrorMsg='Failed FindXmlAttribute ' & ltPatternsElement.
+          RETURN ErrorMsg
+    END 
+    
+    FindCln.Patterns2Queue(PatternQ,Pos1,Pos2)
+    LOOP X=1 TO RECORDS(PatternQ)
+        GET(PatternQ,X) 
+        FndQ:What  = LEFT(PatternQ.WhatTxt ) !For this LEFT() or confusing with invisible leading spaces
+        FndQ:Lower = LEFT(PatternQ.LowerTxt)
+        MruSeq += 1
+        FndQ:MRU = MruSeq
+        ADD(FindQ)
+        AlMruQ=FindQ ; ADD(AlMruQ)
     END
-    Pos2 += 2                               !HACK put Delim at end over what should be " />
-    FindCln.XmlStr[ Pos2-1 : Pos2 ]=sDelim  !     so split easier
-    !FindCln.ViewSlice(FindCln.XmlStr,Pos1,Pos2,'Slice of ' & ltPatternsElement )  !Debug see Slice
-
-    CLEAR(FindQ)    !Find Slices ending with Delim and add to Queue
-    Beg1 = Pos1
-    LOOP X=Pos1+1 TO Pos2-1
-         IF FindCln.XmlStr[ X : X+1 ] = sDelim THEN
-            IF X-1 >= Beg1 THEN
-               !"&" only-->  c#=INSTRING('&',FindCln.XmlStr[ Beg1 : X-1 ] )
-               XmlUnEscape(FindCln.XmlStr[ Beg1 : X-1 ], 0)  !0=Use SIZE
-               FndQ:What = LEFT(FindCln.XmlStr[ Beg1 : X-1 ])
-               FndQ:Lower=lower(FndQ:What)
-               MruSeq += 1
-               FndQ:MRU = MruSeq
-               !FndQ:What='['& Beg1 &':'& X-1 &'] '& FndQ:What  !Debug slice
-               ADD(FindQ)
-               !  if c# THEN ADD(FindQ).  !<-- see & only
-               AlMruQ=FindQ ; ADD(AlMruQ)
-            END
-            X += 1
-            Beg1 = X+1
-         END
-    END
-    RETURN('')     !Load good
-
+    SORT(FindQ, FndQ:MRU)                
+    RETURN('')
 !====================================================================================    
 !Below code from: https://github.com/CarlTBarnes/Clarion-Root-Find
 GetRegistryInstallsOfCW      PROCEDURE(QUEUE Cla_Queue, *STRING ClaQ_RootPath,<*STRING ClaQ_ClarionName>,<*DECIMAL ClaQ_VersioNo>)
@@ -1229,35 +1210,6 @@ DBClear PROCEDURE()
 DbgClear CSTRING('DBGVIEWCLEAR')    !Message to Clear the buffer. Must UPPER and first i.e. without a Prefix
     CODE 
     OutputDebugString(DbgClear)     !Cannot have Prefix, must be first .. so call API directly
-!==============================================
-XmlUnEscape PROCEDURE(*STRING pXML, BYTE pClip=1)!,LONG,PROC   !Returns Change Out
-LenXml LONG,AUTO
-EscNdx LONG,AUTO
-X      LONG,AUTO
-ChangeCnt LONG
-SemiPos   LONG
-    CODE   
-    LenXml=CHOOSE(~pClip, SIZE(pXML), LEN(CLIP(pXML)) ) 
-    LOOP X = LenXml TO 1 BY -1  !Work backwards thru string in place
-        CASE pXML[X]
-        OF ';' ; SemiPos=X      ! &amp; ends with ;
-        OF '&'                  ! &amp; begins with &
-           IF SemiPos AND INRANGE(SemiPos-X+1, 3,6) THEN    ! 123           ! 123456
-              EscNdx=INLIST(pXML[X : SemiPos],'&amp;','&lt;','&gt;','&apos;','&quot;') 
-              IF EscNdx THEN                 !   &       <     >       '        "
-                 pXML[X] = SUB('&<<>''"',EscNdx,1) 
-                 IF SemiPos+1 > LenXml THEN   !&xxx; was last in String?
-                    pXML[X+1 : LenXml] = ''   !Blank end of String after &
-                 ELSE                         !else shift back string
-                    pXML[X+1 : LenXml] = pXML[SemiPos+1 : LenXml]
-                 END
-                 ChangeCnt+=1
-              END 
-           END !If SemiPos   
-           SemiPos=0
-        END !Case Chr
-    END     !Loop
-    RETURN ChangeCnt 
 !============================================== 
 ListHeaderColor PROCEDURE(LONG ListFEQ)
     CODE !With Manifest and Windows 10 the header is White like Data so Color it 

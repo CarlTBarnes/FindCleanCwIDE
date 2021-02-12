@@ -1,7 +1,7 @@
                     MEMBER()
 !--------------------------
 ! CbFindCleanClass by Carl Barnes
-!
+! FindCleanCwIDE utility code split into a Class for reuse
 !--------------------------
 
     INCLUDE('EQUATES.CLW')
@@ -150,13 +150,12 @@ SaveRtn ROUTINE
 CbFindCleanClass.PatternCount PROCEDURE(LONG PatBegin, LONG PatEnd)!,LONG
 CntDlm  LONG
 X       LONG,AUTO 
-sDelim  EQUATE('<0C3h,0BFh>')
     CODE
     IF ~SELF.SliceXmlIsOk(PatBegin, PatEnd,'PatternCount') THEN
         RETURN 0
     END 
     LOOP X=PatBegin TO PatEnd-1
-         IF SELF.XmlStr[ X : X+1 ] = sDelim THEN 
+         IF SELF.XmlStr[ X : X+1 ] = PatternDelimC3BF THEN 
             CntDlm += 1
             X += 1
          END            
@@ -167,7 +166,6 @@ sDelim  EQUATE('<0C3h,0BFh>')
 CbFindCleanClass.PatternShrink PROCEDURE(LONG PatBegin, LONG PatEnd, LONG MinCount)!,LONG
 CntDlm  LONG
 X       LONG,AUTO 
-lDelim  EQUATE('<0C3h,0BFh>')
 LenAfter    LONG
     CODE
     IF ~SELF.SliceXmlIsOk(PatBegin, PatEnd,'PatternTruncate') THEN
@@ -175,7 +173,7 @@ LenAfter    LONG
     END
     IF MinCount < 2 THEN MinCount=2.
     LOOP X=PatBegin TO PatEnd-1
-         IF SELF.XmlStr[ X : X+1 ] = lDelim THEN 
+         IF SELF.XmlStr[ X : X+1 ] = PatternDelimC3BF THEN 
             CntDlm += 1
             IF CntDlm >= MinCount THEN 
                LenAfter = X - PatBegin
@@ -184,10 +182,51 @@ LenAfter    LONG
                BREAK
             END
             X += 1
-         END            
-    END
-
+         END !if Delim          
+    END !loop  x
     RETURN LenAfter
+!-----------------------------------
+CbFindCleanClass.Patterns2Queue PROCEDURE(PatternQType PatternQ,LONG PatBegin, LONG PatEnd)
+Beg1        LONG
+End1        LONG
+LenUnEscaped  LONG
+UnEscCnt    LONG
+X           LONG
+MaxLenWhat  SHORT                        
+ValueLen    LONG,AUTO
+ValueTxt    &STRING
+!MaxSeenLen  LONG                     
+    CODE
+    IF ~SELF.SliceXmlIsOk(PatBegin, PatEnd, 'Patterns2Queue') THEN RETURN.
+    ValueLen = PatEnd-PatBegin +1 +2  !+2=Delim on End
+    ValueTxt &= NEW(STRING(ValueLen))
+    ValueTxt = SELF.XmlStr[ PatBegin : PatEnd ] & PatternDelimC3BF  !Add Delim to end
+    MaxLenWhat=SIZE(PatternQ.WhatTxt)
+    Beg1 = 1
+    LOOP X=2 TO ValueLen - 1  !Go 1 past End to get last
+         IF ValueTxt[ X : X+1 ]=PatternDelimC3BF THEN
+            End1 = X-1
+            IF End1 >= Beg1 THEN
+               UnEscCnt=SELF.XmlUnEscape(ValueTxt[ Beg1 : End1 ], LenUnEscaped)
+                  ! IF MaxSeenLen < LenUnEscaped THEN MaxSeenLen = LenUnEscaped. !If curious of max              
+               IF LenUnEscaped > 0 THEN 
+                   IF LenUnEscaped > MaxLenWhat THEN
+                      LenUnEscaped = MaxLenWhat
+                   END
+                   PatternQ.WhatLen  = LenUnEscaped
+                   PatternQ.WhatTxt  = ValueTxt[ Beg1 : Beg1 + LenUnEscaped-1 ]                  
+                   PatternQ.LowerTxt = lower(PatternQ.WhatTxt)
+                   IF PatternQ.WhatTxt ! AND UnEscCnt !<--just escaped xml &xxx;
+                      ADD(PatternQ) 
+                   END 
+               END !if len>0
+            END    !if end >= beg
+            X += 1     !Move past byte 2 of Delim
+            Beg1 = X+1 !Start of next pattern
+         END !if =Delim
+    END !loop X
+    DISPOSE(ValueTxt)   ! ; MESSAGE('MaxSeenLen=' & MaxSeenLen)
+    RETURN 
     
 !-----------------------------------
 CbFindCleanClass.FindXmlInSlice  PROCEDURE(STRING FindWhat, LONG SliceBeg=1, LONG SliceEnd=0, BOOL pNoCase=0)!,LONG
@@ -202,7 +241,6 @@ FindPos LONG
        IF FindPos THEN FindPos += (SliceBeg-1).
     END 
     RETURN  FindPos
-
 !-----------------------------------
 CbFindCleanClass.FindXmlBetween PROCEDURE(STRING LeftText, STRING RightText, *LONG OutBeginPos, *LONG OutEndPos, LONG SliceBeg=1, LONG SliceEnd=0, BOOL pNoCase=0, BOOL PosIncludesLeftRight=0)!,BOOL
 WasFoundBetween BOOL
@@ -230,7 +268,6 @@ FindBtwRtn ROUTINE !Note Found=False if EXIT before the last line
     END
     WasFoundBetween=True   !Saul Good Man, tell caller we found 
     EXIT
-
 !-----------------------------------
 CbFindCleanClass.FindXmlElement PROCEDURE(STRING ltElementName, *LONG OutBeginPos, *LONG OutEndPos, LONG SliceBeg=1, LONG SliceEnd=0, BOOL IncludeElementInSlice=1)!,BOOL
     CODE
@@ -242,18 +279,31 @@ CbFindCleanClass.FindXmlElement PROCEDURE(STRING ltElementName, *LONG OutBeginPo
     RETURN True
     !TODO This assumes whitespace of space but could be 9,13,10. Use StrPos() RegEx
 !-----------------------------------
-CbFindCleanClass.FindXmlAttribute PROCEDURE(STRING ltElementName, STRING AttribName, *LONG OutBeginPos, *LONG OutEndPos, LONG SliceBeg=1, LONG SliceEnd=0, BOOL IncludeAttribEqAndQts=0)!,BOOL
+CbFindCleanClass.FindXmlAttribute PROCEDURE(STRING ltElementName, STRING AttribName, *LONG OutBeginPos, *LONG OutEndPos, LONG SliceBeg=1, LONG SliceEnd=0, BOOL IncludeAttribEqAndQts=0, <*STRING OutError>)!,BOOL
 ElementBegin LONG
 ElementEnd   LONG
     CODE
     OutBeginPos=0 ; OutEndPos=0
-    IF ~SELF.FindXmlElement(ltElementName, ElementBegin,ElementEnd,SliceBeg,SliceEnd,1) THEN 
+    IF ~SELF.FindXmlElement(ltElementName, ElementBegin,ElementEnd,SliceBeg,SliceEnd,1) THEN
+       IF ~OMITTED(OutError) THEN 
+           OutError='Did not find Element "' & ltElementName &'>"'
+       END
        RETURN False        !^^ Element Begin / End Pos here is used below to search Attrib=
     END
-    RETURN SELF.FindXmlBetween(' '&AttribName &'="','"',           |
-                               OutBeginPos,  OutEndPos,   | !Out position of Value=""
-                               ElementBegin, ElementEnd,  | !In Slice Begin/End of <Element >
-                               0 ,  IncludeAttribEqAndQts ) !0=NoCase 0=Exclude Name=" "
+    IF ~SELF.FindXmlBetween(' '&AttribName &'="','"', | !' value="' to '"'
+                            OutBeginPos,  OutEndPos,  | !Out Position of value=""
+                            ElementBegin, ElementEnd, | !In Slice Begin/End of <Element >
+                            0 ,                       | !0=NoCase (default)
+                            IncludeAttribEqAndQts) THEN !0=Exclude Name=" " Pos is inside Quotes ""   (default)
+       IF ~OMITTED(OutError) THEN 
+           OutError='No " '&  AttribName &'=" in "'& ltElementName &'>"'
+           IF ElementBegin AND OutBeginPos-1=OutEndPos THEN  !Was it empty: value="" cannot handle
+              OutError='Empty / ' & CLIP(OutError) &' Slice[' & OutBeginPos &':'& OutEndPos &']'
+           END 
+       END
+       RETURN False        !^^ Element Begin / End Pos here is used below to search Attrib=
+    END
+    RETURN True
     !TODO This assumes whitespace of space but could be 9,13,10. Use StrPos() RegEx
 !-----------------------------------
 CbFindCleanClass.SliceXmlIsOk  PROCEDURE(*LONG SliceBeg, *LONG SliceEnd, <STRING MsgIfBadSlice>)!,BOOL
@@ -327,3 +377,62 @@ P LONG,DIM(4),STATIC
   END
   GETPOSITION(0,P[1],P[2],P[3],P[4])
   RETURN
+
+!==============================================
+CbFindCleanClass.XmlUnEscape PROCEDURE(*STRING pXML, *LONG OutLen)!,LONG,PROC   !Returns Change Out
+LenXml LONG,AUTO
+EscChr STRING(1),AUTO
+X      LONG,AUTO
+ChangeCnt LONG
+AmpPos LONG !Last &  Ampersand   starts &Token;
+SemPos LONG !Last ;  Semicolon     ends &Token;
+WarnBad STRING(12),STATIC 
+DbgXML  PSTRING(256)
+    CODE
+ DbgXML = pXml
+    LenXml=SIZE(pXML)
+    LOOP X = LenXml TO 1 BY -1  !Work backwards thru string in place
+        CASE pXML[X]
+        OF ';' ; SemPos=X      ! &lt; ends   with ;  =SemPos
+        OF '&' ; AmpPos=x      ! &lt; begins with &  =AmpPos
+                 DO AmpSemiParseRtn
+                 SemPos=0
+        END !Case Chr
+    END     !Loop
+    OutLen = LenXml
+    RETURN ChangeCnt 
+    
+AmpSemiParseRtn  ROUTINE
+    ChangeCnt+=1
+    IF ~SemPos THEN         !Bad XML has & and no ; ?
+       SemPos=AmpPos 
+       DO TellCarlRtn ; EXIT
+    END 
+    CASE pXML[AmpPos : SemPos]
+    OF '&amp;'  ; EscChr='&'
+    OF '&lt;'   ; EscChr='<<'
+    OF '&gt;'   ; EscChr='>'
+    OF '&apos;' ; EscChr=''''
+    OF '&quot;' ; EscChr='"'
+    ELSE 
+        DO TellCarlRtn ; EXIT 
+    END
+    pXML[AmpPos] = EscChr                                 !Put true char over the & 
+    IF SemPos+1 <= LenXml THEN                            !Was &xxx; Not at end of String?
+       pXML[AmpPos+1 : LenXml] = pXML[SemPos+1 : LenXml]  !   then Shift back string 
+    END 
+    LenXml -= (SemPos-AmpPos)  !Reduce length for xxx; leaving pXML[AmpPos] = EscChr
+    EXIT
+
+TellCarlRtn ROUTINE    !Also Fixes XML 
+    IF WarnBad <> pXML[AmpPos : SemPos] THEN 
+       WarnBad  = pXML[AmpPos : SemPos]
+       Message('Tell Carl need to handle Escape Xml: ' & WarnBad & |
+               '||AmpPos='& AmpPos &'  SemPos='& SemPos &'  X='& X &'  LenXml='& LenXml & |
+               '|[Amp]=' & SUB(pXML,AmpPos,1) &'  [Sem]=' & SUB(pXML,SemPos,1) & |
+               '||Xml="' & pXML &'"'& |
+               '||DbgXML='& DbgXML , 'XmlUnEscape')
+    END
+    pXML[AmpPos]='@'     !don't leave bad XML so change & to Q
+    EXIT
+

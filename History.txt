@@ -5,4 +5,12 @@ FindCleanCwIDE History
 02/07/21  Right click on Clean List Popup Menu
           View Find Strings in List on Popup
 
-02/10/21  Keep first clean as .b4CleanMax
+02/10/21  Keep first cleaned XML file as .b4CleanMax
+
+02/12/21  Moved Code out of FindCleanCwIDE into CbFindCleanClass to allow reuse
+          Moved Equates out of FindCleanCwIDE into CbFindCleanClass to allow reuse
+          New CbFindCleanClass.Patterns2Queue with code from CleanViewPatterns
+          CleanViewPatterns uses new methods
+          CbFindCleanClass.FindXmlAttribute return text error message so caller doesn't need to create one
+          XmlUnEscape moved into CbFindCleanClass and handle bad XML
+

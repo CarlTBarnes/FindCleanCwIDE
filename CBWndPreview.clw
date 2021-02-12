@@ -2,7 +2,7 @@
 !--------------------------
 ! CBWndPreviewClass by Carl Barnes December 2018 - Free for use by all - Please acknowledge me as source for this code
 !--------------------------
-VersionWndPrv EQUATE('WndPrv 06-26-20.1245')
+VersionWndPrv EQUATE('WndPrv 07-19-20.1013')
     INCLUDE('KEYCODES.CLW'),ONCE
     INCLUDE('EQUATES.CLW'),ONCE
 CREATE:Slider_MIA   EQUATE(36)      !Not defined in Equates until C11 sometime
@@ -40,7 +40,7 @@ Column   STRING(3)
 FieldX   USHORT
 Name     STRING(64)
 DType    STRING(16)
-Value    STRING(64)
+Value    STRING(256)
 HasValue BYTE
 DTypeNo  BYTE
    END         
@@ -4804,7 +4804,7 @@ Window WINDOW('Prop'),AT(,,450,300),GRAY,SYSTEM,MAX,FONT('Segoe UI',9),RESIZE
                 BUTTON('&View From(Q)'),AT(290,23,,12),USE(?FromQViewBtn),SKIP,TIP('View From(Q) in List')
                 LIST,AT(0,36),FULL,USE(?LIST:FrmFldQ),VSCROLL,FONT('Consolas',10),FROM(FrmFldQ),FORMAT('28C|FM~List<13>' & |
                         '<10>Column~@s3@28C|FM~Queue<13,10>Field~@n3@135L(2)|FM~Field Name~@s64@?61L(2)|FM~Type~C(0)@s16' & |
-                        '@20L(2)F~Value~@s64@'),ALRT(CtrlC),ALRT(DeleteKey)
+                        '@20L(2)F~Value~@s255@'),ALRT(CtrlC),ALRT(DeleteKey)
             END
             TAB('Declare Q'),USE(?TAB:DeclQ),HIDE,TIP('Debug...Delete')
                 BUTTON('&View Decl(Q)'),AT(290,23,,12),USE(?DeclQViewBtn),SKIP,TIP('View From(Q) in List')

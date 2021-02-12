@@ -9,6 +9,17 @@ _IFDef_CbFindCleanCls_  EQUATE(1)
 !    INCLUDE('CbFindCleanCls.INC'),ONCE      ! FindClnCls1  CLASS(CbFindCleanClass).
 !------------------------------------------------------------------
 
+ClarionProperties_xml   EQUATE('ClarionProperties.xml')
+ltFindPatterns          EQUATE('<<FindPatterns')
+ltReplacePatterns       EQUATE('<<ReplacePatterns')
+valueEqQt               EQUATE('value="') 
+PatternDelimC3BF        EQUATE('<0C3h,0BFh>')
+
+PatternQType QUEUE,TYPE
+WhatLen         BYTE
+WhatTxt         STRING(96)
+LowerTxt        STRING(96)
+             END
 !----------------- CbFindCleanClass -----------------
 CbFindCleanClass    CLASS,TYPE,MODULE('CbFindCleanCls.CLW'),LINK('CbFindCleanCls.CLW',1),DLL(0)   !,_ABCLinkMode_),DLL(_ABCDllMode_)
 !
@@ -25,6 +36,8 @@ FileSave            PROCEDURE(STRING ClaPropXmlFileName),BOOL              !Save
 PatternCount        PROCEDURE(LONG PatBegin, LONG PatEnd),LONG
                     !!!<summary>Shrink Self.XmlStr to Minimum Count of Delimeter C3BFh in Slice Begin and End </summary><Returns>LONG Length of Shrinked XML</Returns>
 PatternShrink       PROCEDURE(LONG PatBegin, LONG PatEnd, LONG MinCount),LONG
+                    !!!<summary>Parse the patterns slice by delimeter C3BFh and place in Queue</summary>
+Patterns2Queue      PROCEDURE(PatternQType OutPatternQ,LONG PatBeginSlice, LONG PatEndSlice)
 
                     !!!<summary>Instring(FindWhat,Self.XmlStr)  optionally limited to Slice Begin and End </summary><Returns>LONG Position, 1 based</Returns>
 FindXmlInSlice      PROCEDURE(STRING FindWhat, LONG SliceBeg=1, LONG SliceEnd=0, BOOL NoCase=False),LONG
@@ -38,10 +51,12 @@ FindXmlElement      PROCEDURE(STRING ltElementName, *LONG OutBeginPos, *LONG Out
 
                     !Find <Element Attrib="123"> Assumes ="Quotes", Returns inside Quotes
                     !!!<summary>Find <Element Attrib="123"> Assumes ="Quotes", Returns Begin/End Position inside Quotes. optionally limited to Slice Begin and End. </summary><Returns>BOOL True if found</Returns>
-FindXmlAttribute    PROCEDURE(STRING ltElementName, STRING AttribName, *LONG OutBeginPos, *LONG OutEndPos, LONG SliceBeg=1, LONG SliceEnd=0, BOOL IncludeQuotes=0),BOOL
+FindXmlAttribute    PROCEDURE(STRING ltElementName, STRING AttribName, *LONG OutBeginPos, *LONG OutEndPos, LONG SliceBeg=1, LONG SliceEnd=0, BOOL IncludeQuotes=0, <*STRING OutError>),BOOL
 
                     !!!<summary>Verify Slice Begin/End is >0 and <= Xml length. To see a message pass 'ShowMsgIfBadSlice'.</summary><Returns>BOOL True if Slice Valid</Returns>
 SliceXmlIsOk        PROCEDURE(*LONG SliceBeg, *LONG SliceEnd, <STRING ShowMsgIfBadSlice>),BOOL
+
+XmlUnEscape         PROCEDURE(*STRING InOutXML, *LONG OutLen),LONG,PROC
 
 ViewString PROCEDURE(STRING StrValue, <STRING CapTxt>)
 ViewString PROCEDURE(*STRING StrValue, <STRING CapTxt>)
