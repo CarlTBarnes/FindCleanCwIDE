@@ -343,8 +343,8 @@ SzStr LONG,AUTO
 CbFindCleanClass.ViewString PROCEDURE(*STRING StrValue, <STRING CapTxt>)
 LenTxt     LONG,AUTO
 ShowHex    BYTE
-HScrollTxt BYTE(1)
-VScrollTxt BYTE(1)
+HScrollTxt BYTE(1),STATIC
+VScrollTxt BYTE(1),STATIC
 Window WINDOW('S'),AT(,,310,140),GRAY,SYSTEM,MAX,FONT('Consolas',10),RESIZE
         TOOLBAR,AT(0,0,325),USE(?TB1)
             CHECK('Show HEX'),AT(2,0),USE(ShowHex),TIP('See Value in Hex'),disable
@@ -362,7 +362,8 @@ P LONG,DIM(4),STATIC
   IF P[4] THEN SETPOSITION(0,P[1],P[2],P[3],P[4]).
   IF LenTxt > 0FFF0h THEN DISABLE(?HScrollTxt,?VScrollTxt). !System Error @ 64k in 11.13505 - Message('Risk GPF?',LenTxt,,'No|Risk')
   ?Txt{PROP:Use}=StrValue
-  0{PROP:Text}=CHOOSE(~OMITTED(CapTxt) AND CapTxt,CLIP(CapTxt),'StringTheory Value') & ' - Length ' & LenTxt
+  0{PROP:Text}=CHOOSE(~OMITTED(CapTxt) AND CapTxt,CLIP(CapTxt),'StringTheory Value') & ' - Length ' & LenTxt  
+  IF ~HScrollTxt THEN ?Txt{PROP:HScroll}=0. ; IF ~VScrollTxt THEN ?Txt{PROP:VScroll}=0. 
   ACCEPT
     CASE ACCEPTED()
     OF ?HScrollTxt ; ?Txt{PROP:HScroll}=HScrollTxt

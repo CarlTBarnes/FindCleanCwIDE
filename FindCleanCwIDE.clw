@@ -627,20 +627,21 @@ QNdx    LONG,AUTO
 DOO.CleanListPopup PROCEDURE() !Rt Mouse Popup for Clean List
  
 RowFileName CSTRING(261)
-B4_FileName CSTRING(261),DIM(4) 
-B4_Stamp    PSTRING(32),DIM(4)
-B4_Tilde    PSTRING(2),DIM(4)
+B4_FileName CSTRING(261),DIM(6) 
+B4_Stamp    PSTRING(32),DIM(6)
+B4_Tilde    PSTRING(2),DIM(6)
 DateStamp   STRING(32)
 X   USHORT
     CODE
     SETKEYCODE(0)
     RowFileName = CleanQ.PathBS & ClarionProperties_xml
-    LOOP X=1 TO 4
-        B4_FileName[X]=RowFileName & CHOOSE(X,'.b4clean','.b4clean2','.b4cleanMax','.old')
+    LOOP X=1 TO 6
+        B4_FileName[X]=RowFileName & CHOOSE(X,'.b4clean','.b4clean2','.b4cleanMax', |
+                                              '.b4favor','.b4favor2','.old')
         IF ~GetFileDateTimeSize(B4_FileName[X],,,,DateStamp) THEN 
            B4_Tilde[X]='~'
         ELSE
-           B4_Stamp[X]='<9>(' & CLIP(DateStamp) &')' 
+           B4_Stamp[X]='<9> ' & CLIP(DateStamp)  
         END  
     END
     EXECUTE POPUP('Explore Folder	Double Click' & |  !#1
@@ -652,10 +653,12 @@ X   USHORT
                       B4_Tilde[1] &'.B4 Clean  Backup' & B4_Stamp[1] & |  !#5
                  '|'& B4_Tilde[2] &'.B4 Clean2 Backup' & B4_Stamp[2] & |  !#6
                  '|'& B4_Tilde[3] &'.B4 CleanMax Save' & B4_Stamp[3] & |  !#7
-                 '|'& B4_Tilde[4] &'.Xml.Old IDE Copy' & B4_Stamp[4] & |  !#8
-           '|-'& '|Select File to View Patterns ...' & |  !#9
+           '|-'& '|'& B4_Tilde[4] &'.B4 Favor  Backup' & B4_Stamp[4] & |  !#8
+                 '|'& B4_Tilde[5] &'.B4 Favor2 Backup' & B4_Stamp[5] & |  !#9
+                 '|'& B4_Tilde[6] &'.Xml.Old IDE Copy' & B4_Stamp[6] & |  !#10
+           '|-'& '|Select File to View Patterns ...' & |                  !#11
                  '}' & |
-          '|-'& '|Delete Row	Delete'   )    !#10
+          '|-'& '|Delete Row	Delete'   )                               !#12
      
       ExplorerOpen(CleanQ.PathBS)  ! #1
       NotepadOpen(CleanQ.PathBS & ClarionProperties_xml)
@@ -665,6 +668,8 @@ X   USHORT
       CleanViewSelectFile(B4_FileName[2])
       CleanViewSelectFile(B4_FileName[3])
       CleanViewSelectFile(B4_FileName[4])
+      CleanViewSelectFile(B4_FileName[5])
+      CleanViewSelectFile(B4_FileName[6])
       CleanViewSelectFile()
       DELETE(CleanQ)               ! # 9  Delete Row`Delete
     END !EXECUTE Popup 
@@ -1178,9 +1183,9 @@ RetBool BOOL
     IF ~OMITTED(outTime) THEN outTime=DirQ:Time.
     IF ~OMITTED(outSize) THEN outSize=DirQ:Size.
     IF ~OMITTED(outStamp) THEN 
-        outStamp=CHOOSE(~RetBool,'',LEFT(FORMAT(DirQ:Date,@d17))&' '& |
-                                         FORMAT(DirQ:Time,@t1)  &'  '& |
-                                    LEFT(FORMAT(DirQ:Size,@n11)) ) .
+        outStamp=CHOOSE(~RetBool,'',CLIP(LEFT(FORMAT(DirQ:Size,@n11))) &'  '& |
+                                              FORMAT(DirQ:Time,@t01)   &'  '& |
+                                              FORMAT(DirQ:Date,@d017)  ).
     RETURN RetBool
 !==============================================
 GetSpecialFolder    PROCEDURE(LONG CDSL)
