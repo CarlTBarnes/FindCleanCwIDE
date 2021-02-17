@@ -73,7 +73,7 @@ XmlLen                  LONG
 Construct               PROCEDURE()
 Destruct                PROCEDURE(),VIRTUAL
 NewXmlStr               PROCEDURE(LONG pNewXmlLen)
-
+NewXmlString            PROCEDURE(STRING pNewString)  !Pass String Value to New Size
 
 !Test <Comments> they must be in the INC to show in code that Includes the Class
 !!! <summary>Open the LoadSaveFile - INTERNAL USE</summary>

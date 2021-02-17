@@ -23,7 +23,7 @@ ReadWrite_DenyWrite  EQUATE(22H)      !02h+20h     !Save Open
                     END
 
 !----------------------------------------
-CbFindCleanClass.Construct        PROCEDURE()
+CbFindCleanClass.Construct  PROCEDURE()
 !----------------------------------------
 Something  STRING('<<Construct>')      !Prevent accidental use of Null and GPF
     CODE
@@ -31,15 +31,13 @@ Something  STRING('<<Construct>')      !Prevent accidental use of Null and GPF
     SELF.XmlStr=Something
     CLOSE(LoadSaveFile)
     RETURN
-
 !---------------------------------------
-CbFindCleanClass.Destruct PROCEDURE()
+CbFindCleanClass.Destruct  PROCEDURE()
 !---------------------------------------
     CODE
     CLOSE(LoadSaveFile)
     DISPOSE(SELF.XmlStr)
     RETURN
-        
 !-----------------------------------
 CbFindCleanClass.NewXmlStr  PROCEDURE(LONG pNewLen)
 !-----------------------------------
@@ -49,7 +47,13 @@ CbFindCleanClass.NewXmlStr  PROCEDURE(LONG pNewLen)
     DISPOSE(SELF.XmlStr)
     SELF.XmlStr &= NEW(STRING(SELF.XmlLen)) !Prevent accidental use and GPF
     RETURN
-
+!-----------------------------------
+CbFindCleanClass.NewXmlString  PROCEDURE(STRING pNewString)
+!-----------------------------------
+    CODE
+    SELF.NewXmlStr(SIZE(pNewString))
+    SELF.XmlStr = pNewString
+    RETURN 
 !-----------------------------------
 CbFindCleanClass.FileLoad  PROCEDURE(STRING pFileName, BYTE pQuery)!,BOOL
 RetBool     BOOL
