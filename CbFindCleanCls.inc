@@ -56,7 +56,7 @@ FindXmlAttribute    PROCEDURE(STRING ltElementName, STRING AttribName, *LONG Out
                     !!!<summary>Verify Slice Begin/End is >0 and <= Xml length. To see a message pass 'ShowMsgIfBadSlice'.</summary><Returns>BOOL True if Slice Valid</Returns>
 SliceXmlIsOk        PROCEDURE(*LONG SliceBeg, *LONG SliceEnd, <STRING ShowMsgIfBadSlice>),BOOL
 
-XmlEscape           PROCEDURE(CONST *STRING InStrIng, *STRING OutXml, *LONG OutLength),BOOL,PROC !Returns False if Overrun
+XmlEscape           PROCEDURE(*STRING InString, *STRING OutXml, *LONG OutLength, BOOL ClipInString=0),BOOL,PROC !Returns False if Overrun
 XmlUnEscape         PROCEDURE(*STRING InOutXML, *LONG OutLen),LONG,PROC
 
 ViewString PROCEDURE(STRING StrValue, <STRING CapTxt>)

@@ -384,7 +384,7 @@ P LONG,DIM(4),STATIC
   RETURN
 
 !==============================================
-CbFindCleanClass.XmlEscape   PROCEDURE(CONST *STRING pStr, *STRING pOutXml, *LONG OutLen)!,BOOL,PROC !Returns False if Overrun
+CbFindCleanClass.XmlEscape   PROCEDURE(*STRING pStr, *STRING pOutXml, *LONG OutLen, BOOL pClipInStr=0)!,BOOL,PROC !Returns False if Overrun
 FitOutXmlOK BOOL,AUTO
 Token   PSTRING(7),AUTO 
 TokLen  BYTE,AUTO 
@@ -395,7 +395,7 @@ OutMax  LONG,AUTO
     OutX=0 
     FitOutXmlOK=1
     OutMax = SIZE(pOutXml)
-    LOOP InX = 1 TO LEN(CLIP(pStr))
+    LOOP InX = 1 TO CHOOSE(~pClipInStr,SIZE(pStr),LEN(CLIP(pStr)))
          CASE VAL(pStr[InX])  
          OF 60 ; Token= '&lt;'  
          OF 62 ; Token= '&gt;'  
