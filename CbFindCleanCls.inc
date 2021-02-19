@@ -38,7 +38,9 @@ PatternCount        PROCEDURE(LONG PatBegin, LONG PatEnd),LONG
 PatternShrink       PROCEDURE(LONG PatBegin, LONG PatEnd, LONG MinCount),LONG
                     !!!<summary>Parse the patterns slice by delimeter C3BFh and place in Queue</summary>
 Patterns2Queue      PROCEDURE(PatternQType OutPatternQ,LONG PatBeginSlice, LONG PatEndSlice)
-
+                    !!!<summary>Join Patterns in Queue with delimeter C3BFh</summary><Returns>*STRING to replace FindPatterns Value</Returns>
+PatternsQ2String    PROCEDURE(PatternQType PatQ, *LONG OutLength),*STRING
+ 
                     !!!<summary>Instring(FindWhat,Self.XmlStr)  optionally limited to Slice Begin and End </summary><Returns>LONG Position, 1 based</Returns>
 FindXmlInSlice      PROCEDURE(STRING FindWhat, LONG SliceBeg=1, LONG SliceEnd=0, BOOL NoCase=False),LONG
 
