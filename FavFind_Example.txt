@@ -1,0 +1,17 @@
+EVENT:OpenWindow
+OF ?OK 
+
+ClosingWindow
+PrimeFields RO
+GetNextRecord RO
+ValidateRecord RO 
+FillQueue RO
+ProcedureReturn RO 
+PrepareProcedure
+RefreshWindow RO
+ButtonInsert RO 
+CallUpdate RO
+  
+END    
+
+END Stops Loading ...

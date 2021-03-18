@@ -231,7 +231,40 @@ ValueTxt    &STRING
     END !loop X
     DISPOSE(ValueTxt)   ! ; MESSAGE('MaxSeenLen=' & MaxSeenLen)
     RETURN 
-    
+!-----------------------------------
+CbFindCleanClass.PatternsQ2String   PROCEDURE(PatternQType PatQ, *LONG OutLength)!,*STRING 
+X           LONG
+UnEscaped   &STRING
+Escaped     STRING(512) 
+EscLength   LONG                                          
+AnyBytes    LONG 
+AnyXml      ANY  !Don't need a String Class for 40 concats of < 1000 bytes 
+XmlString   &STRING                 
+    CODE
+    LOOP X=1 TO RECORDS(PatQ)
+        GET(PatQ,X) 
+        IF ~PatQ:WhatLen THEN CYCLE.
+        UnEscaped &= PatQ:WhatTxt[1 : PatQ:WhatLen]
+        IF ~SELF.XmlEscape(UnEscaped,Escaped,EscLength) OR EscLength=0 THEN 
+            Message('Failed Escape '& PatQ:WhatLen &' bytes.||Input=' & UnEscaped,'PatternsQ2String')
+            CYCLE
+        END
+        IF ~AnyBytes THEN
+            AnyXml = Escaped[1 : EscLength] 
+            AnyBytes -= 2
+        ELSE
+            AnyXml = AnyXml & PatternDelimC3BF & Escaped[1 : EscLength]
+        END 
+        AnyBytes += (EscLength + 2)
+    END 
+    IF ~AnyBytes THEN
+        AnyXml='No Patterns'
+        AnyBytes=LEN(AnyXml)
+    END 
+    OutLength = AnyBytes    
+    XmlString &= NEW(STRING( AnyBytes ))
+    XmlString = AnyXml
+    RETURN XmlString    
 !-----------------------------------
 CbFindCleanClass.FindXmlInSlice  PROCEDURE(STRING FindWhat, LONG SliceBeg=1, LONG SliceEnd=0, BOOL pNoCase=0)!,LONG
 FindPos LONG 
