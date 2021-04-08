@@ -3,7 +3,7 @@
 ! CBWndPreviewClass (c) Carl Barnes 2018-2021 - MIT License
 ! Download: https://github.com/CarlTBarnes/WindowPreview
 !------------------------------------------------------------
-VersionWndPrv EQUATE('WndPrv 03-18-21.1530')
+VersionWndPrv EQUATE('WndPrv 04-08-21.0826')
     INCLUDE('KEYCODES.CLW'),ONCE
     INCLUDE('EQUATES.CLW'),ONCE
 CREATE:Slider_MIA   EQUATE(36)      !Not defined in Equates until C11 sometime
@@ -124,12 +124,14 @@ PopupUnder          PROCEDURE(LONG CtrlFEQ, STRING PopMenu),LONG,PRIVATE
 PropHuntLoadP7Q     PROCEDURE(Parse7QType OutP7Q, LONG FeqTypeNo),PRIVATE
 PropText1           PROCEDURE(LONG FEQ, LONG FType, *STRING AltText, BOOL QuoteIt=0),STRING,PRIVATE
 PropTFName          PROCEDURE(LONG CtrlFEQ, LONG PROPNumber, STRING TrueName,<STRING FalseName>),STRING,PRIVATE
+PropTrashDelete     PROCEDURE(PropQType PQ),PRIVATE
 PropViewWindow      PROCEDURE(STRING CapTxt, PropQType PQ, STRING ValueOnly),PRIVATE
+PropEditWindow      PROCEDURE(LONG FEQ, STRING FeqName, PropQType PQ, STRING PropValue, BYTE PropIndex=0),PRIVATE
 QueueDeclareGet     PROCEDURE(QUEUE inQueue, QueDeclareType DeclareQ),PRIVATE
 QueueViewListVLB    PROCEDURE(QUEUE ViewQ, STRING QName),PRIVATE
 QueueViewListVLB    PROCEDURE(QUEUE ViewQ, STRING QName, QueDeclareType FrmFldQ),PRIVATE
 ReflectDeclareGet   PROCEDURE(*GROUP inGroupClassOrQueue, QueDeclareType DeclareQ, STRING LevelPrefix),LONG,PROC,PRIVATE !03/11/21
-ReflectGroupOrQueue PROCEDURE(CBWndPreviewClass PrvCls,BYTE GrpClsQue123,*GROUP GrpClsQueRef, STRING NameOfGCQ,<*QUEUE FromQ>),PRIVATE  !03/11/21
+ReflectGroupOrQueue PROCEDURE(CBWndPreviewClass PrvCls,BYTE GrpClsFilQue1234,*GROUP GrpClsQueRef, STRING NameOfGCQ,<*QUEUE FromQ>,BYTE ViewQRecords=0),PRIVATE  !03/11/21
 ReplaceInto         PROCEDURE(*string Into, string FindTxt,string ReplaceTxt, BYTE ClipInto=0),LONG,PROC,PRIVATE
 ReplaceText         PROCEDURE(string InText, string Find,string Repl, BYTE ClipInto=0),STRING
 SeeMore             PROCEDURE(LONG PropMore, LONG CtrlFEQ, LONG CtrlTypeNo),STRING,PRIVATE
@@ -211,6 +213,7 @@ GridInc         BYTE(10)
 Grid5th         BYTE(5)
 GuideClr        LONG(0FFh)
 GridClr         LONG(8080h)
+BoxItShows      BYTE(1)
             END            
 ConfigKey   EQUATE('Software\CarlBarnes\WinPreview')
 !EndRegion Global Data
@@ -385,7 +388,19 @@ Now LONG,AUTO
     Glo:Built='(Built: ' & FORMAT(XQ:Time,@t4) &' '& SUB(FORMAT(XQ:Date,@d01),1,5) &CHOOSE(Now-XQ:Time<999,'',' - Run: ' & FORMAT(Now,@t1)) &')'
     XQ:Name=lower(XQ:Name) ; GLO:IsPreviewEXE=CHOOSE(XQ:Name[1:10]='winpreview' OR INSTRING('test',XQ:Name,1)) 
     RETURN
-
+!--------------
+CBWndPreviewClass.ShowReflection PROCEDURE(Window W, SIGNED SelectedLast)
+HoldTarget &Window 
+   CODE 
+    HoldTarget &= SYSTEM{PROP:Target}
+    SETTARGET(W) 
+    W{PROP:Active} = TRUE 
+    SELF.InitWorker(W)
+    SELF.SelectedLast=SelectedLast
+    SELF.Reflection()
+    SETTARGET(HoldTarget)
+    RETURN
+!--------------
 CBWndPreviewClass.InitList PROCEDURE(LONG FEQ,*QUEUE FrmQ,<STRING NameQ>)
 Ref GROUP,AUTO
 Q    &QUEUE
@@ -466,6 +481,50 @@ F LONG,AUTO
      END 
   END     
   RETURN RetLvl
+!-----------------------------------
+CBWndPreviewClass.SideDoorCall PROCEDURE(LONG CallDoorNo, LONG FEQ, LONG FeqTypeNo, STRING FeqTypeName, STRING FeqName)
+SysMenuCls SysMenuClass
+Save_GHide LIKE(GloT:Hide)
+  CODE  !03/28/21 For ListFormatParser to call ListPROPs directly takes setup of SysMenu. Code from .Reflection() setup
+  SYSTEM{7A58h}=1 ; SYSTEM{7A7Dh}=MSGMODE:CANCOPY !PROP:PropVScroll PROP:MsgModeDefault
+  PWnd &= SELF.WndRef
+  IF ~ConfigGrp_DidGet THEN SELF.ConfigGetAll(). 
+  Save_GHide=GloT:Hide ; GloT:Hide=1
+  FREE(SysMenuClsQ) ; CLEAR(SysMenuClsQ) ; SysMnQ:WinRef &= PWnd ; SysMnQ:hWindow=PWnd{PROP:Handle} ; SysMnQ:ZOrder=1 ; ADD(SysMenuClsQ)
+  CASE CallDoorNo
+  OF 1 ; Self.ControlPROPs (FEQ, FeqTypeNo, FeqTypeName, FeqName)
+  OF 2 ; Self.ResizeControl(FEQ, FeqTypeNo, FeqTypeName, FeqName)
+  OF 3 ; Self.ListPROPs    (FEQ, FeqTypeNo, FeqTypeName, FeqName) !ListFormatParser
+  OF 4 ; Self.ListReFORMAT (FEQ, FeqTypeNo, FeqTypeName, FeqName) 
+  OF 5 ; Self.WindowPROPs()
+  OF 6 ; Self.ResizeWindow()
+  OF 7 ; Self.SystemPROPs()    
+  END
+  GloT:Hide=Save_GHide
+  RETURN 
+!----------------------------------------------------------- 
+CBWndPreviewClass.BoxIt PROCEDURE(LONG FEQ=0)
+P LONG,DIM(4),AUTO
+F LONG,AUTO
+  CODE
+  IF ~FEQ AND ~SELF.BoxItFEQ THEN RETURN.
+  SETTARGET(PWnd)
+  IF SELF.BoxItFEQ THEN DESTROY(SELF.BoxItFEQ) ; SELF.BoxItFEQ=0.
+  IF FEQ THEN 
+    IF ~FEQ{PROP:Visible} THEN DO VisibleRtn.
+    GETPOSITION(FEQ,P[1],P[2],P[3],P[4])
+    F=CREATE(0,Create:Box) ; SELF.BoxItFEQ=F 
+    SETPOSITION(F,P[1]-2,P[2]-2,P[3]+4,P[4]+4) 
+    F{PROP:Fill}=COLOR:Yellow ; F{PROP:Color}=COLOR:Red ; UNHIDE(F)
+  END
+  SETTARGET() ; RETURN
+VisibleRtn ROUTINE!Recurse Parents and Unhide, select Tab on Sheet
+    F=FEQ ; UNHIDE(F)
+    LOOP  ; F=F{PROP:Parent} ; IF F=0 THEN BREAK.
+      UNHIDE(F)
+      IF F{PROP:Type}<>CREATE:Tab OR F{PROP:Visible} THEN CYCLE.
+      (F{PROP:Parent}){PROP:Selected}=F{PROP:ChildIndex} !Sheet Select TAB
+    END    
 !-----------------------------------------------------------
 ! Parent control can Hide or Disable Children. See PROP:Enabled Prop:Visible. Show different Icon?
 !   Maybe Checkbox to [ ] Show only Hide/Disable/ReadOnly that also shows parent PROP:Enabled Prop:Visible
@@ -542,7 +601,7 @@ DevTpNoLIST BYTE
 DevTipEIP LONG
 AllColsHide USHORT,THREAD
 FindTxt STRING(64) 
-ConsolasFQ BYTE,THREAD      
+ConsolasFQ BYTE,THREAD          
 !    BUTTON('G'),AT(14,2,10,10),USE(?SysMenuTip),SKIP,FONT('Wingdings',12),TIP('TIP: There are 8 special items on System Menu. This is on EVERY window.'),flat
 !    BUTTON('<235>'),AT(2,2,10,10),USE(?UnderBtn),SKIP,FONT('Wingdings'),TIP('Move Preview under this Window')
 !    BUTTON('<74>'),AT(14,2,10,10),USE(?SysMenuTip),flat,SKIP,FONT('Wingdings 2',13),TIP('TIP: There are 8 special items on System Menu. This is on EVERY window.')
@@ -556,7 +615,9 @@ Window WINDOW('WindowReflection'),AT(,,600,220),GRAY,SYSTEM,MAX,ICON(ICON:JumpPa
                 'p on selected Control - F2'),FLAT
         BUTTON('<37h>'),AT(63,2,13,10),USE(?AltKeyAnalBtn),SKIP,FONT('Wingdings',12),TIP('ALT+Key An' & |
                 'alysis<13,10>Show controls that can or have Alt+Key or KEY().<13,10>After can use R' & |
-                't Mouse Delete TAB Controls'),FLAT
+                't Mouse Delete TAB Controls'),FLAT 
+        CHECK('<0a8h>'),AT(79,3,9,8),USE(Cfg:BoxItShows),SKIP,TRN,FLAT,FONT('Wingdings 2',,COLOR:Maroon),ICON(ICON:None), |
+                TIP('Box selected Control in Red to find it on Window')
         BUTTON('8'),AT(225,14,13,10),USE(?RightTip),SKIP,FONT('Wingdings',12),TIP('TIP: Right-Click ' & |
                 'on List for Popup of Options'),FLAT
         BUTTON('T'),AT(225,2,13,10),USE(?SettingsBtn),SKIP,FONT('Wingdings',12),TIP('Settings...'),FLAT
@@ -644,7 +705,7 @@ ReOpenLOOP:Label:
   IF ConsolasFQ THEN POST(EVENT:Accepted,?ConsolasFQ).
   
   DO AcceptLoopRtn ! ACCEPT .. CASE EVENT()  CASE ACCEPTED() END 
-
+  SELF.BoxIt()
   SELF.AtSetOrSave(2, AtWndReflect[])
   GET(FieldQ,CHOICE(?ListF)) ; FieldQ_LastFEQNo=FldQ:FeqNo
   Format_ListF=?ListF{PROP:Format} 
@@ -714,7 +775,8 @@ AcceptLoopRtn ROUTINE !--------------------
     OF ?TricksBtn ; DO TricksBtnRtn 
     OF ?UnderBtn   ; SysMenuCls_SYSCOMMAND(0{PROP:Handle},SMCmd_MoveUnder)
     OF ?WndPropBtn ; SELF.WindowPROPs()
-    OF ?WndResizeBtn ; SELF.ResizeWindow()       
+    OF ?WndResizeBtn ; SELF.ResizeWindow() 
+    OF ?Cfg:BoxItShows ; IF ~Cfg:BoxItShows THEN SELF.BoxIt(0) ELSE POST(EVENT:NewSelection,?ListF). ; SELF.ConfigPut(Cfg:BoxItShows)
    END
     CASE FIELD()
     OF ?ListF
@@ -730,6 +792,7 @@ AcceptLoopRtn ROUTINE !--------------------
           END
        OF EVENT:DoMouseRight ; IF MouseRightSent THEN DO MouseRightMenuRtn ; MouseRightSent=0.
        OF EVENT:NewSelection                !Check Uncheck boxes
+          IF Cfg:BoxItShows THEN SELF.BoxIt(FldQ:FeqNo).
           CASE KEYCODE()              
           OF MouseRight ;  MouseRightSent+=1 ; IF MouseRightSent=1 THEN POST(EVENT:DoMouseRight,?ListF).
           OF MouseLeft2 OROF CtrlMouseLeft2 OROF ShiftMouseLeft2 OROF AltMouseLeft2 
@@ -1456,7 +1519,8 @@ LenNum SHORT
 CBWndPreviewClass.AtSetOrSave   PROCEDURE(BYTE Set1Save2, *LONG[] A, BYTE NoSetXY=0)
 !TODO Split into 2 procedure AtSet and AtSave. At() passes  MinW MinH  0=None 1=Current, 
     CODE
-    IF Set1Save2=1 THEN      !1=Window Open
+    IF KeyStateSCA(1) THEN  !Shift Down no action
+    ELSIF Set1Save2=1 THEN      !1=Window Open
         0{PROP:MinWidth}  = 0{PROP:Width}  / 3  !TODO better way
         0{PROP:MinHeight} = 0{PROP:Height} / 3
         IF A[3] THEN
@@ -1498,7 +1562,7 @@ L LONG,AUTO
 CBWndPreviewClass.WindowPROPs   PROCEDURE()
     CODE
     SELF.ControlPROPs(0,SELF.WndTypeNo,SELF.WndTypeName,SELF.WndLabel)
-    RETURN
+    RETURN   
 CBWndPreviewClass.ControlPROPs  PROCEDURE(LONG FEQ, LONG FeqTypeNo, STRING FeqTypeName, STRING FeqName) 
 PQ PropQType
 X  LONG,AUTO
@@ -1512,7 +1576,7 @@ FindTxt STRING(64),STATIC
 Window WINDOW('ControlPROPs'),AT(,,250,250),GRAY,SYSTEM,FONT('Segoe UI',9),RESIZE
         BUTTON('<50>'),AT(2,2,12,12),USE(?UnderBtn),SKIP,FONT('Webdings'),TIP('Move Preview under th' & |
                 'is Window'),FLAT
-        BUTTON('&Close'),AT(17,2,27,12),USE(?CloseBtn),SKIP,STD(STD:Close)
+        BUTTON('Cl&ose'),AT(17,2,27,12),USE(?CloseBtn),SKIP,STD(STD:Close)
         BUTTON('LIST'),AT(78,2,27,12),USE(?LISTBtn),DISABLE,SKIP,TIP('PROPLIST Viewer')
         BUTTON('Resize'),AT(47,2,27,12),USE(?ResizeBtn),SKIP,TIP('Reposition i.e. Move or Resize')
         BUTTON('&Scan'),AT(154,2,27,12),USE(?ScanBtn),SKIP,TIP('Scan for undocumented PROPs 7900h-7DFF?')
@@ -1552,7 +1616,7 @@ SortCls CBSortClass
         OF ?LISTBtn ; HIDE(0) ; SELF.ListPROPs(FEQ,FeqTypeNo,FeqTypeName,FeqName) ; UNHIDE(0) 
         OF ?ResizeBtn ; SELF.ResizeControl(FEQ, FeqTypeNo, FeqTypeName, FeqName) 
         OF ?HelpBtn ; GET(PQ,CHOICE(?LIST:PQ)) ; HelpCW(PQ:Name,1)
-        OF ?TrashBtn  ; DO TrashBtnRtn
+        OF ?TrashBtn  ; PropTrashDelete(PQ)
         OF ?TestsBtn  ; DO TestsRtn
         END
         IF FIELD()=?LIST:PQ THEN 
@@ -1573,22 +1637,6 @@ SortCls CBSortClass
     CLOSE(Window)
     RETURN
 !-----------------    
-TrashBtnRtn ROUTINE
-    DATA
-Bad_Prop STRING('7C5Bh 7C96h 7CB4h 7CFAh 7C5Bh 7C5Dh 7CA8h 7CFAh 7A3Ah 7C12h 7C10h 7C11h 7C13h 7C57h 7C58h 7A1Bh 7CFBh 7CFCh 7A10h 7A52h 7CA7h Win32 ' & | !CPI Enabled Handle Visible WNDProc 
-                '7C29h 7C23h 7C20h 7C26h 7C24h 7C21h 7C27h 7C25h 7C22h 7C28h 7A56h 7A57h ') !List
-Bad_Zero STRING('7CE9h 7CE5h 7CE4h 7CE6h ') ! Angle Bevel
-    CODE
-    LOOP X=RECORDS(PQ) TO 1 BY -1 ; GET(PQ,X)
-        PE=INSTRING(CLIP(PQ:EqtHex),Bad_Zero,1) !Case
-        IF PE THEN  !Zero
-           IF PE AND PQ:Value<>'0' AND PQ:Value<>'' THEN PE=0.  !Keeper
-        ELSE
-           PE=INSTRING(CLIP(PQ:EqtHex),Bad_Prop,1) !Case
-        END   
-        L=KeyStateSCA(2) !CtrlDown        
-        IF ~L AND PE THEN DELETE(PQ) ; ELSIF L AND ~PE THEN DELETE(PQ).
-    END ; DISPLAY 
 TestsRtn ROUTINE
     DATA
 F   LONG    
@@ -1729,6 +1777,213 @@ ScanRtn     ROUTINE !Scan for undocumented props 7900h-7DFFh
   DISPLAY ; Message(RECORDS(PQ)-X & ' Added as {{####h} Scan')
   EXIT
 !=====================================
+CBWndPreviewClass.PROPsEditor  PROCEDURE(LONG FEQ, LONG FeqTypeNo, STRING FeqTypeName, STRING FeqName) 
+PQ QUEUE(PropQType),PRE(PQ)    
+Index BYTE !PQ:Index
+   END
+Last_EqtLong LONG,STATIC   
+Subset BYTE,STATIC   
+X  LONG,AUTO
+PE LONG,AUTO
+L  LONG,AUTO
+Val STRING(255),AUTO 
+VLg LONG,AUTO
+FindCls CBLocateCls
+FindTxt STRING(64),STATIC 
+Window WINDOW('Edit PROPs'),AT(,,247,250),GRAY,SYSTEM,FONT('Segoe UI',9),RESIZE
+        BUTTON('<50>'),AT(2,2,12,12),USE(?UnderBtn),SKIP,FONT('Webdings'),TIP('Move Preview under this Window'),FLAT
+        BUTTON('Cl&ose'),AT(17,2,27,12),USE(?CloseBtn),SKIP,STD(STD:Close)
+        LIST,AT(54,3,60,10),USE(Subset),SKIP,DROP(9),FROM('Normal PROP|#0|ALL PROP|#1|Alert Keys|#2|Drag & Drop|#3|Icon ' & |
+                'List|#9')
+        BUTTON('&Copy'),AT(216,2,27,12),USE(?CopyBtn),SKIP
+        BUTTON('?'),AT(153,2,12,12),USE(?HelpBtn),KEY(F2Key),SKIP,FONT(,,,FONT:bold),TIP('Clarion Help - F2')
+        BUTTON('3'),AT(182,2,12,12),USE(?TrashBtn),SKIP,FONT('WingDings 2',14),TIP('Delete Clutter<13,10>Ctrl+Click to l' & |
+                'eave only Clutter')
+        ENTRY(@s64),AT(31,19,182,10),USE(FindTxt),SKIP,FONT('Consolas')
+        BUTTON('&Find'),AT(2,18,25,11),USE(?FindNext),SKIP
+        BUTTON('Pre&v'),AT(216,18,26,11),USE(?FindPrev),SKIP
+        LIST,AT(0,33),FULL,USE(?LIST:PQ),VSCROLL,FONT('Consolas',10),FROM(PQ),FORMAT('27L(3)|FM~Equate~L(1)@s5@80L(2)|FM' & |
+                '~Property~@s32@?122L(2)F~Value (Double Click to Edit)~@s255@'),ALRT(DeleteKey), ALRT(EnterKey)
+    END
+SysMenuCls SysMenuClass
+SortCls    CBSortClass 
+AtPropEdit LONG,DIM(4),STATIC
+    CODE
+    PWnd &= SELF.WndRef
+    DO LoadPQRtn
+    OPEN(Window) ; SysMenuCls.Init(Window) ;SELF.AtSetOrSave(1, AtPropEdit[])
+    0{PROP:Text} = 'Edit PROP: for ' & CLIP(FeqTypeName)  &'  Feq: '& FEQ &'  '& FeqName
+    MakeOverList(?List:PQ)
+    SortCls.Init(PQ,?LIST:PQ,2)
+    FindCls.Init(PQ, ?LIST:PQ, ?FindTxt, ?FindNext, ?FindPrev)
+    DO SyncLastRtn
+    ACCEPT 
+        CASE ACCEPTED()
+        OF ?UnderBtn ; SysMenuCls_SYSCOMMAND(0{PROP:Handle},SMCmd_MoveUnder)   
+        OF ?CopyBtn  ; SELF.PropQCopy2Clip(PQ)
+        OF ?HelpBtn  ; GET(PQ,CHOICE(?LIST:PQ)) ; HelpCW(PQ:Name,1)
+        OF ?TrashBtn ; PropTrashDelete(PQ)
+        OF ?Subset   ; DO LoadPQRtn ; DO SyncLastRtn
+        END
+        IF FIELD()=?LIST:PQ THEN 
+           GET(PQ,CHOICE(?LIST:PQ))
+           CASE EVENT()
+           OF EVENT:NewSelection OROF EVENT:AlertKey
+              Last_EqtLong = PQ:EqtLong
+              CASE KEYCODE()
+              OF DeleteKey ; DELETE(PQ)
+              OF MouseLeft2 OROF EnterKey 
+                 PropEditWindow(FEQ, FeqName, PQ, CHOOSE(~PQ:Index,PWnd$Feq{PQ:EqtLong},PWnd$Feq{PQ:EqtLong,PQ:Index}), PQ:Index) 
+                 IF PQ:Index THEN DO LoadPQRtn ELSE PQ:Value=PWnd$Feq{PQ:EqtLong} ; PUT(PQ).
+              END
+           OF EVENT:HeaderPressed ; SortCls.HeaderPressed()              
+           END !Case Event
+        END !IF List      
+    END !Accept
+    SELF.AtSetOrSave(2,AtPropEdit[])        
+    CLOSE(Window)
+    RETURN 
+SyncLastRtn ROUTINE
+    IF ~Last_EqtLong THEN EXIT.
+    PQ:EqtLong = Last_EqtLong
+    GET(PQ,PQ:EqtLong) 
+    SELECT(?LIST:PQ,CHOOSE(~ERRORCODE(),POINTER(PQ),1))  
+LoadPQRtn ROUTINE
+    SETTARGET(PWnd) 
+    FREE(PQ) ; CLEAR(PQ) ; L=0
+    CASE SubSet
+    OF 0 OROF 1 ; DO PropHuntRtn
+    OF 2 ; LOOP X=1 TO 255 ; PQ:Index=X
+                VLg = Feq{PROP:Alrt,X} ; IF ~VLg THEN L+=1 ; IF L>1 AND X<255 THEN CYCLE. ; END
+                PQ:Value = CHOOSE(VLg=0,'<9>',ClaKeyCodeExplain(VLg))
+                SELF.PropQAdd(PQ,PROP:Alrt,'Alrt,'& FORMAT(X,@n3),PQ:Value)
+           END
+    OF 3 ; LOOP X=1 TO 16 ; PQ:Index=X  
+                SELF.PropQAdd(PQ,PROP:DragID,'DragID,'& FORMAT(X,@n3), Feq{PROP:DragID,X},,1)
+                SELF.PropQAdd(PQ,PROP:DropID,'DropID,'& FORMAT(X,@n3), Feq{PROP:DropID,X},,1)
+           END 
+    OF 9 ; LOOP X=1 TO 255 ; CLEAR(PQ) ; PQ:Index=X
+                PQ:Value=Feq{PROP:IconList,X} 
+                IF ~PQ:Value THEN L+=1 ; IF L>9 THEN CYCLE. ; END
+                SELF.PropQAdd(PQ,PROP:IconList,'IconList,'& FORMAT(X,@n3),PQ:Value,,1)
+           END 
+    END
+    SETTARGET()
+    SORT(PQ,PQ:Name) !; SELF.QueueReflection(PQ,'PQ',1)
+    EXIT
+PropHuntRtn ROUTINE
+    DATA        !CPI  ChildIndex Enabled Follows Handle NextTabStop Parent Precedes PrevTabStop RejectCode Type USE UseAddress Visible WNDProc-STD-ScreenText
+SkipPROP STRING('7C5Bh7A18h7CA8h7C99h7C96h7A56h7A07h7A7Eh7A57h7A1Bh7C01h7A10h7A52h7CA7h7CB4h7C82h7CBAh')
+                 !-INS-UPR-CAP-IMM-OVR-Password-REQ-ReadOnly       
+KeepENTRY STRING('7C57h7C89h7C5Ah7C6Ah7C58h7C7Ah7C7Ch7C7Bh') 
+EquateH5  STRING(5)  !Equate ####h
+P7Q Parse7QType          
+TB  STRING('<9>') !Tab shows in list
+  CODE
+  PropHuntLoadP7Q(P7Q,FeqTypeNo)
+  LOOP X=1 TO RECORDS(P7Q) ; GET(P7Q, X)
+    EquateH5=P7Q:EqtHex
+    IF INSTRING(EquateH5,SkipPROP) THEN CYCLE.
+    PE=P7Q:EqtLong  
+    Val=Feq{PE}
+    IF ~Val THEN
+       CASE PE !TODO Better way to have MAP for Type/PRP to always show
+       OF PROP:Checked ; IF FeqTypeNo=CREATE:Check OR FeqTypeNo=CREATE:Radio THEN Val=TB.
+       END
+       CASE FeqTypeNo
+       OF   CREATE:Entry  
+       OROF CREATE:Combo
+       OROF CREATE:Spin ; IF INSTRING(EquateH5,KeepENTRY) THEN Val=TB. !Pwd is extra
+       END
+       IF ~Val AND SubSet=0 THEN CYCLE.
+       Val=TB  !Tab lets value show
+    END 
+    SELF.PropDescribe(PE,Val,0)
+    SELF.PropQAdd(PQ,PE,P7Q:Name,Val)
+  END !Loop
+  L = Feq{PROP:Key} ; IF L THEN SELF.PropQAdd(PQ,PROP:Key,'KEY',ClaKeyCodeExplain(L) ).
+  EXIT             
+!======================================
+PropEditWindow PROCEDURE(LONG FEQ, STRING FeqName, PropQType PQ, STRING RawValue, BYTE PropIndex)
+Txt  STRING(1024),AUTO
+Undo STRING(1024),AUTO
+Quoted BYTE
+AutoClose BYTE,STATIC
+EditWn WINDOW('EDIT Prop'),AT(,,231,56),GRAY,SYSTEM,FONT('Segoe UI',9),RESIZE
+        STRING('Value'),AT(2,23,11,18),USE(?Value:Pmt),RIGHT,ANGLE(900)
+        TEXT,AT(19,22,,18),FULL,USE(Txt),FONT('Consolas',12),SINGLE
+        BUTTON('&Set Value'),AT(18,3,37),USE(?SetBtn),DEFAULT,TIP('Set Control PROP to below value')
+        BUTTON('= &1'),AT(60,3,22),USE(?Set1Btn),KEY(AltI),TIP('Alt + Eye')
+        BUTTON('= &0'),AT(86,3,22),USE(?Set0Btn),KEY(AltO),TIP('Alt + Oh')
+        BUTTON('=" "'),AT(112,3,22),USE(?SpaceBtn),KEY(AltSpace),TIP('Alt + Space')
+        BUTTON('&Undo'),AT(142,3,30),USE(?UndoBtn)
+        BUTTON('&Close'),AT(180,3,30),USE(?CloseBtn),STD(STD:Close)
+        CHECK('Quoted'),AT(18,43),USE(Quoted),SKIP,TIP('Text is Clarion Literal String with << HEX >')
+        CHECK('Auto Close'),AT(162,43,47),USE(AutoClose),SKIP,LEFT,TIP('Close on Set Value')
+    END
+SysMenuCls SysMenuClass 
+StSELF &CBWndPreviewClass  
+P LONG,DIM(4),STATIC 
+X LONG,AUTO
+PROP:: LONG,AUTO
+    CODE
+    PROP::=PQ.EqtLong
+    OPEN(EditWn) 
+    0{PROP:Text}='Edit PROP '& PQ.EqtHex &' '& CLIP(PQ.Name) &' - FEQ '& FEQ &' '& FeqName
+    StSELF.AtSetOrSave(1,P[]) ; SysMenuCls.Init(EditWn) ; 0{PROP:MinHeight}=0{PROP:Height} ; 0{PROP:MaxHeight}=0{PROP:Height} 
+    Txt=RawValue
+    LOOP X=1 TO SIZE(Txt) !Quote if Low ASCII
+        IF VAL(Txt[X])>31 THEN CYCLE.
+        Txt=QUOTE(CLIP(RawValue)) ; Quoted=1 ; ?Quoted{PROP:Text}='Quoted <<Hex>'; DISABLE(?Quoted) ; BREAK
+    END
+    Undo=Txt    
+    ACCEPT  
+        CASE ACCEPTED()
+        OF ?SetBtn  ; DO SetRtn
+        OF ?Set0Btn ; Txt='0' ; DO SetRtn 
+        OF ?Set1Btn ; Txt='1' ; DO SetRtn 
+        OF ?SpaceBtn; Txt=''  ; DO SetRtn 
+        OF ?Quoted  ; Txt=QUOTE(CLIP(Txt)) ; Undo=QUOTE(CLIP(RawValue)) ; DISABLE(Quoted) 
+        OF ?UndoBtn ; IF ~PropIndex THEN PWnd$FEQ{PROP::}=RawValue ELSE PWnd$FEQ{PROP::,PropIndex}=RawValue.
+                      Txt=Undo ; DISPLAY
+        END
+    END
+    StSELF.AtSetOrSave(2,P[])
+    CLOSE(EditWn) 
+    RETURN 
+SetRtn ROUTINE
+    IF ~PropIndex THEN 
+           PWnd$FEQ{PROP::}=CHOOSE(~Quoted,CLIP(Txt),UNQUOTE(Txt)) 
+       Txt=PWnd$FEQ{PROP::}
+    ELSE
+           PWnd$FEQ{PROP::,PropIndex}=CHOOSE(~Quoted,CLIP(Txt),UNQUOTE(Txt)) 
+       Txt=PWnd$FEQ{PROP::,PropIndex}
+    END    
+    IF Quoted THEN Txt=QUOTE(CLIP(Txt)).
+    IF AutoClose THEN POST(EVENT:CloseWindow) ELSE SELECT(?Txt).
+    DISPLAY ; EXIT
+!=====================================
+PropTrashDelete PROCEDURE(PropQType PQ)
+X USHORT,AUTO
+IsBad USHORT,AUTO
+IsCtrlDown BYTE,AUTO
+Bad_Prop STRING('7C5Bh 7C96h 7CB4h 7CFAh 7C5Bh 7C5Dh 7CA8h 7CFAh 7A3Ah 7C12h 7C10h 7C11h 7C13h 7C57h 7C58h 7A1Bh 7CFBh 7CFCh 7A10h 7A52h 7CA7h Win32 ' & | !CPI Enabled Handle Visible WNDProc 
+                '7C29h 7C23h 7C20h 7C26h 7C24h 7C21h 7C27h 7C25h 7C22h 7C28h 7A56h 7A57h ') !List
+Bad_Zero STRING('7CE9h 7CE5h 7CE4h 7CE6h ') ! Angle Bevel
+    CODE 
+    IsCtrlDown=KeyStateSCA(2)     
+    LOOP X=RECORDS(PQ) TO 1 BY -1 ; GET(PQ,X)
+        IsBad=INSTRING(CLIP(PQ:EqtHex),Bad_Zero,1) !Case
+        IF IsBad THEN  !Zero is Bad
+           IF PQ:Value<>'0' AND PQ:Value<>'' THEN IsBad=0.  !Keeper
+        ELSE
+           IsBad=INSTRING(CLIP(PQ:EqtHex),Bad_Prop,1) !Case
+        END          
+        IF   ~IsCtrlDown AND  IsBad THEN DELETE(PQ) 
+        ELSIF IsCtrlDown AND ~IsBad THEN DELETE(PQ).
+    END 
+    DISPLAY ; RETURN
+!======================================
 CBWndPreviewClass.PropDescribe PROCEDURE(LONG PE,*STRING Val, BYTE Big2Hex=0)!,BOOL,PROC
 ValLng LONG,AUTO
 L   LONG,AUTO
@@ -1968,7 +2223,7 @@ P7Q Parse7QType
 !--------------    
 FontRtn ROUTINE
     DATA
-FFace   STRING(64)
+FFace   STRING(32)
 FSize   LONG
 FStyle  LONG
 FCHar   LONG
@@ -2118,10 +2373,10 @@ ValSM LONG
 CBWndPreviewClass.PropQCopy2Clip  PROCEDURE(PropQType PQ)   !Copy PQ to Clipboard
   CODE ; SetClip2Queue(PQ,1,'Equate<9>Name<9>Value',,1,3)
 !=================  
-CBWndPreviewClass.PropQAdd  PROCEDURE(PropQType PrpQ, LONG PQEquate, STRING PQName, STRING PQVal, <STRING FilterVals>)
+CBWndPreviewClass.PropQAdd  PROCEDURE(PropQType PrpQ, LONG PQEquate, STRING PQName, STRING PQVal, <STRING FilterVals>, BYTE AddBlank=0)
 L   LONG,AUTO 
     CODE
-    IF PQVal THEN
+    IF PQVal OR AddBlank THEN
         IF PQVal='<9>' THEN PQVal=''.  !Secret way to add blank values
         IF ~OMITTED(FilterVals) AND INSTRING(CLIP(PQVal),FilterVals,1) THEN RETURN.
         PrpQ.EqtLong = PQEquate
@@ -2272,7 +2527,7 @@ IsLIST  SHORT
 IsSHEET SHORT
 IsSTRING BYTE !1=Str 2=SStr
 IsTEXT  SHORT
-EntryV  STRING(255)
+EntryV  STRING(255)  !prop:text
 AlignQ QUEUE,PRE(AlnQ)
 Desc     STRING(8)
 ACode    PSTRING(8)
@@ -2280,6 +2535,7 @@ Prop     LONG
 PrOffset LONG
 Value    BYTE
        END
+EntryVisQuoted BYTE !03/20/21 allow <13,10>
 BoxItFEQ LONG
 Window WINDOW('WYSIWYG Resize'),AT(,,485,207),GRAY,IMM,SYSTEM,FONT('Segoe UI',9),RESIZE
         TOOLBAR,AT(0,0,485,30),USE(?TOOLBAR1)
@@ -2289,7 +2545,8 @@ Window WINDOW('WYSIWYG Resize'),AT(,,485,207),GRAY,IMM,SYSTEM,FONT('Segoe UI',9)
             BUTTON('Cancel'),AT(31,1,29,12),USE(?CancelBtn),SKIP,TIP('Undo size changes and Close')
             BUTTON('Undo'),AT(2,14,25,12),USE(?UndoBtn),SKIP,TIP('Undo size changes back to Original' & |
                     ', but stay on this window')
-            BUTTON('&PROPs'),AT(93,1,27,12),USE(?PropsBtn),SKIP
+            BUTTON('PV'),AT(93,1,14,12),USE(?PropsBtn),SKIP,TIP('PROP View')
+            BUTTON('PE'),AT(109,1,14,12),USE(?PropEdBtn),SKIP,TIP('PROP Editor')
             BUTTON('LIST'),AT(125,1,21,12),USE(?LISTBtn),DISABLE,SKIP,TIP('PROPLIST Viewer')
             BUTTON('<50>'),AT(149,14,12,12),USE(?UnderBtn),SKIP,FONT('Webdings'),TIP('Move Under Windows to align under this one')
             LIST,AT(150,2,32,10),USE(Cfg:ResizeSnapTo),FONT(,8),TIP('How to Position Preview Window ' & |
@@ -2422,7 +2679,7 @@ Window WINDOW('WYSIWYG Resize'),AT(,,485,207),GRAY,IMM,SYSTEM,FONT('Segoe UI',9)
             CHECK('NoSheet'),AT(251,81),USE(Poz:ShNoSheet),SKIP,TIP('No visible 3D Panel.<13,10>Tab ' & |
                     'Ear location and orientation reverses.')
             CHECK('Wizard'),AT(251,91),USE(Poz:ShWizard),SKIP,TIP('No Tab Ears')
-            CHECK('No Theme'),AT(251,101),USE(Poz:ShNoTheme),SKIP,TIP('No Windows Colors')
+            CHECK('No Theme'),AT(251,101),USE(Poz:ShNoTheme),SKIP,TIP('No Visual Styles for SHEET<13,10>Also for LIST, must set before Accept loop')
             LIST,AT(251,112,42,10),USE(Poz:ShStyle),SKIP,TIP('PROP:TabSheetStyle visual style of the' & |
                     ' Tab Ears'),DROP(5),FROM('Defaut|#0|B & W|#1|Colored|#2|Squared|#3|Boxed|#4')
             BUTTON,AT(295,79,14,13),USE(?TabPickBtn),SKIP,ICON(ICON:Pick),TIP('Pick Tab to Show')
@@ -2460,7 +2717,7 @@ EVENT:SnapToUnder  EQUATE(EVENT:User+100)
     CODE
 !Region BEFORE Open Window
     IF GloT:ResizeControl THEN Message('You have Resize Open for FEQ ' & GloT:ResizeControl ) ; RETURN.
-    GloT:ResizeControl=FEQ
+    GloT:ResizeControl=FEQ ; SELF.BoxIt()
     IsENTRY=INLIST(FeqTypeNo,CREATE:Entry,CREATE:Combo,CREATE:Spin,CREATE:SString)
     IsLINE=INLIST(FeqTypeNo,CREATE:Line,CREATE:box,CREATE:ellipse)
     IsLIST=INLIST(FeqTypeNo,CREATE:List,CREATE:Combo,CREATE:DropList,CREATE:DropCombo)
@@ -2511,13 +2768,13 @@ EVENT:SnapToUnder  EQUATE(EVENT:User+100)
         OF ?UnderBtn ; SysMenuCls_SYSCOMMAND(0{PROP:Handle},SMCmd_MoveUnder)
         OF ?LISTBtn  ; SELF.ListPROPs(FEQ,FeqTypeNo,FeqTypeName,FeqName)
         OF ?PropsBtn ; SELF.ControlPROPs(FEQ, FeqTypeNo, FeqTypeName,FeqName) 
-!        OF ?Pos2QBtn ; DO LoadPQ
+        OF ?PropEdBtn; HIDE(0) ; SELF.PROPsEditor(FEQ, FeqTypeNo, FeqTypeName,FeqName) ; UNHIDE(0)
         OF ?Poz:Picture ; IF ~Poz:Picture THEN Poz:Picture=B4Waz:Picture. ; Poz:Picture=LEFT(Poz:Picture)
         OF ?EntryV   ; SETTARGET(PWnd)
                        IF IsENTRY OR IsTEXT THEN 
                           CHANGE(FEQ,EntryV) 
                        ELSE 
-                          PWnd$FEQ{PROP:Text}=EntryV
+                          PWnd$FEQ{PROP:Text}=CHOOSE(~EntryVisQuoted,EntryV,UNQUOTE(EntryV))
                        END ; DISPLAY ; SETTARGET() ; CYCLE
         OF ?BtnBO1 TO ?BtnLI8 ; BevCls.BtnClick(?) 
         OF ?BevAllEdgeBtn     ; BevCls.AllBtn()
@@ -2696,7 +2953,12 @@ S1QWindowOpenRtn ROUTINE
    
     IF NOT(IsENTRY OR IsTEXT) THEN !Combo ISEntry=1
        EntryV=PWnd$FEQ{PROP:Text}
-       IF EntryV OR ~INLIST(FeqTypeNo,CREATE:region,CREATE:line,CREATE:list,CREATE:box,CREATE:ellipse,CREATE:progress,CREATE:Slider_MIA,CREATE:sheet,CREATE:panel)
+       IF INLIST(FeqTypeNo,CREATE:button,CREATE:prompt,CREATE:check,CREATE:state3,CREATE:radio)  !API CHECK RADIO allow 13,10
+          EntryVisQuoted=1
+          EntryV=QUOTE(CLIP(EntryV))
+          ?EntryV:Pmt{PROP:Text}='"Text"'
+          ?EntryV{PROP:Tip}='Quoted (''Literal'')<13,10>Double ''<<{{ and use hex <<13,10>'
+       ELSIF EntryV OR ~INLIST(FeqTypeNo,CREATE:region,CREATE:line,CREATE:list,CREATE:box,CREATE:ellipse,CREATE:progress,CREATE:Slider_MIA,CREATE:sheet,CREATE:panel)
           ?EntryV{PROP:Tip}='Change PROP:Text'
           ?EntryV:Pmt{PROP:Text}='Text:'
        ELSE
@@ -3121,18 +3383,19 @@ Window WINDOW('WYSIWYG Window'),AT(,,249,163),IMM,SYSTEM,FONT('Segoe UI',9),RESI
         TOOLBAR,AT(0,0,249,28),USE(?TOOLBAR1)
             BUTTON('Save'),AT(2,1,25,12),USE(?SaveBtn),SKIP,TIP('Save size changes and Close<13,10>Tool Tip is updated w' & |
                     'ith Before and After Size.')
-            BUTTON('Halt'),AT(92,1,25,12),USE(?HaltBtn)
+            BUTTON('Halt'),AT(94,1,25,12),USE(?HaltBtn)
             BUTTON('Cancel'),AT(30,1,29,12),USE(?CancelBtn),SKIP,TIP('Undo size changes and Close')
             BUTTON('Undo'),AT(2,14,25,12),USE(?UndoBtn),SKIP,TIP('Undo size changes back to Original, but stay on this window')
-            BUTTON('&PROPs'),AT(62,1,27,12),USE(?PropsBtn),SKIP
-            BUTTON('<50>'),AT(120,14,12,12),USE(?UnderBtn),SKIP,FONT('Webdings'),TIP('Move Preview under this Window')
-            LIST,AT(121,2,32,10),USE(Cfg:ResizeSnapTo),FONT(,8),TIP('How to Position Preview Window under the Resizer'), |
+            BUTTON('PV'),AT(62,1,14,12),USE(?PropsBtn),SKIP,TIP('PROP View')
+            BUTTON('PE'),AT(77,1,14,12),USE(?PropEdBtn),SKIP,TIP('PROP Editor')
+            BUTTON('<50>'),AT(122,14,12,12),USE(?UnderBtn),SKIP,FONT('Webdings'),TIP('Move Preview under this Window')
+            LIST,AT(123,2,32,10),USE(Cfg:ResizeSnapTo),FONT(,8),TIP('How to Position Preview Window under the Resizer'), |
                     DROP(5,44),FROM('Right Snap|#1|Centr Snap|#2|Left Snap|#3|None|#9')
             BUTTON('F'),AT(30,14,13,12),USE(?FontBtn),MSG('Leave off Tip'),SKIP,FONT(,10,,FONT:bold+FONT:italic)
             BUTTON('C'),AT(46,14,13,12),USE(?ColorBtn),SKIP,FONT(,10,COLOR:Red,FONT:bold)
             BUTTON('<176>'),AT(62,14,13,12),USE(?GdLinesBtn),SKIP,FONT('Wingdings',14,COLOR:GRAYTEXT,FONT:bold), |
                     TIP('Guide and Grid Lines')
-            BUTTON('Test'),AT(92,14,25,12),USE(?TestBtn),SKIP
+            BUTTON('Test'),AT(94,14,25,12),USE(?TestBtn),SKIP
         END
         PANEL,AT(117,32,1,80),USE(?VertRightPanel),BEVEL(0,0,6000H)
         GROUP,AT(2,32,112,44),USE(?Group:AT)
@@ -3215,6 +3478,7 @@ EVENT:SnapToUnder  EQUATE(EVENT:User+100)
         OF ?UndoBtn   ; Poz=BeforeWaz ; DO SizeChangeRtn
         OF ?UnderBtn  ; SysMenuCls_SYSCOMMAND(0{PROP:Handle},SMCmd_MoveUnder)
         OF ?PropsBtn  ; SELF.ControlPROPs(0, CREATE:Window, 'WINDOW', 'Window') 
+        OF ?PropEdBtn ; SELF.PROPsEditor(0, CREATE:Window, 'WINDOW', 'Window')
         OF ?PropText  ; PWnd$FEQ{PROP:Text}=PropText ; CYCLE
         OF ?FontBtn   ; DO FontRtn
         OF ?ColorBtn  ; DO ColorRtn 
@@ -3889,6 +4153,7 @@ MakeOverList PROCEDURE(LONG F, BYTE CfgChg=0) !Color Lists to tell from APP
 FC LONG(603000h) !804000h !Color:Navy !TODO Let User Config and save
 BC LONG(0f1fcfbH)
   CODE
+  F{PROP:NoTheme}=1
   IF CfgChg AND ~CFG:MakeOvrList THEN FC=-1 ; BC=-1 ; ELSIF ~CFG:MakeOvrList THEN RETURN .
   F{PROP:Color}=BC ; F{PROP:FontColor}=FC 
   F{PropList:DefHdrBackColor}=BC ; F{PropList:DefHdrTextColor}=FC 
@@ -3970,7 +4235,7 @@ CP1 STRING('7C00Text 7C01Type 7C08Left 7C09LeftOffSet 7C0CRight 7C0DRightOffSet'
  ' 7C71Meta 7C72Modal 7C73MSG 7C74NoBar 7C75NoMerge 7C76PageAfter 7C77PageAfterNum 7C78PageBefore'&|
  ' 7C79PageBeforeNum 7C7APassword 7C7BReadOnly 7C7CREQ 7C7DReset 7C7ERound 7C7FScroll'&|
  ' 7C80Separate 7C81Skip 7C82STD 7C83Step 7C84System 7C85Format 7C87Check 7C88TRN 7C89UPR'&|
- ' 7C8BVScroll 7C8EItems 7C91Auto 7C92ToolBox 7C93Palette 7C95Thread 7C96Handle 7C99Follows'&|
+ ' 7C8BVScroll 7C8EItems 7C90SelEnd 7C91Auto 7C92ToolBox 7C93Palette 7C95Thread 7C96Handle 7C99Follows'&|
  ' 7C9EVScrollPos 7CA0Tip 7CA3Vertical 7CA4Smooth 7CA6Progress 7CA7Visible 7CA8Enabled 7CA9Wizard'&| !dup SliderPos7CA6 
  ' 7CAAChoiceFEQ 7CABClientHandle 7CACLineCount 7CADMinWidth 7CAEMinHeight 7CAFMaxWidth'&|
  ' 7CB0MaxHeight 7CB7Spread 7CBAScreenText 7CBBHScrollPos 7CBFValue 7CC0Value,2 7CC2TabRows'&| !dup Value7CBF Array[2] TrueValue7CBF FalseValue7CC0
@@ -3998,14 +4263,17 @@ CP_WINDOW    STRING(' 7A71ToolBar 7A72MenuBar ')
 CP_OLEOCX    STRING(' 7CEAAutoSize 7CEBClip 7CECStretch 7CEDZoom 7CEECompatibility 7CEFDesign 7CF0Document 7CF1Link 7CF2Align 7CF3Cancel 7CF4TextAlign 7CF5Object 7CF6License 7CF8Language 7CF9Interface' & |
                     ' 7CC6Create 7CC7SaveAs 7CC8Open 7CC9Blob 7CCADoVerb 7CCBSizeMode 7CCCSelectInterface 7CCDAddRef 7CCERelease 7CCFDeactivate 7CD0Update 7CD1Paste 7CD2ReportException 7CD3PasteLink 7CD4Copy' & |
                     ' 7CD5CanPaste 7CD6CanPasteLink 7CD7WindowUI 7CD8DesignMode 7CD9Ctrl 7CDAGrabHandles 7CDBOLE 7CDCIsRadio 7CDDLastEventName 7CDECLSID 7CDFProgID ') !Docs say some are write-only YMMV
-CP_EndSpace  STRING(' ')
-   END
+CP_Selected  STRING(' 7C8FSelected              ')  !SelStart for ENTRY TEXT
+CP_EndSpace  STRING(' ')         ! 7C8FSelStart  <-Add for All
+   END 
+Add_SelStart              STRING(' 7C8FSelStart')   
 CP  STRING(SIZE(CPGroup)),OVER(CPGroup)
     CODE
     CASE FeqTypeNo
     OF CREATE:Sheet      ; CLEAR(CP_Sheet_NA) ; CLEAR(CP_Slider)
     OF CREATE:Slider_MIA ; CLEAR(CP_Sheet)    ; CLEAR(CP_Slider_NA)
-    OF -1 !ALL for Pick
+    OF CREATE:Entry OROF CREATE:Text OROF CREATE:SingleLine OROF CREATE:Combo ; CP_Selected=Add_SelStart
+    OF -1 ; CP_Selected=Add_SelStart & CP_Selected     !ALL for Pick
     ELSE                 ; CLEAR(CP_Sheet)    ; CLEAR(CP_Slider)
     END
     EquateXStringParse(OutP7Q,4,CP) 
@@ -4273,7 +4541,6 @@ SysMenuCls SysMenuClass
 PropViewWindow PROCEDURE(STRING CapTxt, PropQType PQ, STRING ValueOnly)
 Txt         STRING(4096),AUTO
 HexTxt      STRING(4096*5),AUTO
-!!!LenVO       LONG    !Also first time Flag
 ShowHex     BYTE                 
 Window WINDOW('PropView'),AT(,,325,140),GRAY,SYSTEM,FONT('Consolas',10),RESIZE
         !TOOLBAR,AT(0,0),USE(?TOOLBAR1)
@@ -4801,14 +5068,18 @@ SaveFmt ANY
        IF FmtNow<>0{UPropFmt} THEN SYSTEM{UPropFmt}=FmtNow.  !If Format changed save in SYSTEM
     END 
 !----------------------
-CBWndPreviewClass.GroupReflection PROCEDURE(*GROUP GroupRef, STRING NameOfGroup)
-    CODE ; ReflectGroupOrQueue(SELF,1,GroupRef,NameOfGroup)
-CBWndPreviewClass.ClassReflection PROCEDURE(*GROUP ClassRef, STRING NameOfClass) !View Class in Window
-    CODE ; ReflectGroupOrQueue(SELF,2,ClassRef, NameOfClass)
-CBWndPreviewClass.QueueReflection PROCEDURE(*QUEUE QueueRef, STRING NameOfQueue) !View Queue in Window
-    CODE ; ReflectGroupOrQueue(SELF,3,QueueRef, NameOfQueue,QueueRef)
+CBWndPreviewClass.GroupReflection PROCEDURE(*GROUP G, STRING N)
+    CODE ; ReflectGroupOrQueue(SELF,1,G,N)
+CBWndPreviewClass.ClassReflection PROCEDURE(*GROUP C, STRING N)
+    CODE ; ReflectGroupOrQueue(SELF,2,C,N)
+CBWndPreviewClass.FileReflection  PROCEDURE(*FILE F, <STRING N>)
+R &GROUP
+    CODE ; R &= F{PROP:Record} 
+           ReflectGroupOrQueue(SELF,3,R,CHOOSE(~OMITTED(N),N,'File: '&F{PROP:Name}))
+CBWndPreviewClass.QueueReflection PROCEDURE(*QUEUE QueueRef, STRING NameOfQueue, BYTE ViewRecords=0) !View Queue in Window
+    CODE ; ReflectGroupOrQueue(SELF,4,QueueRef, NameOfQueue,QueueRef,ViewRecords)
 !----------------------  
-ReflectGroupOrQueue PROCEDURE(CBWndPreviewClass PrvCls,BYTE GrpClsQue,*GROUP ThingRef, STRING ThingName,<*QUEUE FromQ>) 
+ReflectGroupOrQueue PROCEDURE(CBWndPreviewClass PrvCls,BYTE GrpClsFilQue,*GROUP ThingRef, STRING ThingName,<*QUEUE FromQ>, BYTE ViewQRecs=0) 
 DeclareQ QUEUE(QueDeclareType),PRE(DecQ).
 SortCls CBSortClass
 FindCls CBLocateCls
@@ -4817,14 +5088,19 @@ RefWnd WINDOW('Class Reflect'),AT(,,380,220),GRAY,SYSTEM,MAX,FONT('Segoe UI',9),
         ENTRY(@s64),AT(32,3,155,11),USE(FindTxt),SKIP,FONT('Consolas')
         BUTTON('&Find'),AT(2,2,25,12),USE(?FindNext),SKIP
         BUTTON('Pre&v'),AT(191,2,26,12),USE(?FindPrev),SKIP
-        BUTTON('&Copy'),AT(238,2,,12),USE(?CopyBtn),SKIP,TIP('Copy Declaration')
-        BUTTON('&View Queue'),AT(286,2,,12),USE(?ViewQBtn),SKIP,TIP('View Queue Records')
+        BUTTON('&Copy'),AT(233,2,30,12),USE(?CopyBtn),SKIP,TIP('Copy Declaration')
+        BUTTON('&Gen ='),AT(268,2,30,12),USE(?GenEqBtn),SKIP,TIP('Generate Field= Lines to Clipboard')
+        BUTTON('&View Queue'),AT(303,2,50,12),USE(?ViewQBtn),SKIP,TIP('View Queue Records')
         LIST,AT(1,18),FULL,USE(?LIST:DeclareQ),VSCROLL,FONT('Consolas',10),FROM(DeclareQ),FORMAT('18C|FM~Fld<13,10>No.~@' & |
                 'n3@115L(2)|FM~Field Name~@s64@?61L(2)|FM~Type~C(0)@s16@20R(6)|FM~Type<13,10>No.~C(0)@n3@30R(2)|FM~Size~' & |
                 'C(0)@n10@20R(6)|FM~How<13,10>Many~L(2)@n4@25L(6)|FM~Has<13,10>Value~C(0)@n3@135L(2)F~Data Value~@s255@1' & |
                 '35L(2)F~Any Long~@n11@'),ALRT(DeleteKey)
     END
-NAVR   PSTRING(2),AUTO
+X LONG,AUTO
+L BYTE,AUTO
+M BYTE,AUTO
+A ANY
+NAVR PSTRING(2),AUTO
 DValLong LONG,AUTO
 QueRef &QUEUE 
 GrpRef &GROUP
@@ -4836,17 +5112,19 @@ AtRGQ  LONG,DIM(4),STATIC
     OPEN(RefWnd) ; DISPLAY 
     IF OMITTED(FromQ) THEN HIDE(?ViewQBtn).
     ReflectDeclareGet(ThingRef,DeclareQ,'')
-    0{PROP:Text}=CLIP(ThingName) & CHOOSE(GrpClsQue,' GROUP',' CLASS',' QUEUE','') & ' Reflection' |
+    0{PROP:Text}=CLIP(ThingName) & CHOOSE(GrpClsFilQue,' GROUP',' CLASS',' FILE',' QUEUE','') & ' Reflection' |
                                  & ' - ' & Records(DeclareQ) & ' Fields' | 
                                  & CHOOSE(~OMITTED(FromQ),' - '& Records(FromQ) & ' Records','') |
                                  & ' - Address=' & Hex8(Address(ThingRef))  
     FindCls.Init(DeclareQ, ?LIST:DeclareQ, ?FindTxt, ?FindNext, ?FindPrev)
     SortCls.Init(DeclareQ,?LIST:DeclareQ)
     PrvCls.AtSetOrSave(1, AtRGQ[]) 
-    ListFormatDejaVu(?LIST:DeclareQ,'Reflect')    
+    ListFormatDejaVu(?LIST:DeclareQ,'Reflect')
+    IF ViewQRecs THEN POST(EVENT:Accepted,?ViewQBtn).
     ACCEPT 
         CASE ACCEPTED() 
         OF ?CopyBtn  ; SetClip2Queue(DeclareQ)
+        OF ?GenEqBtn ; DO GenEqRtn
         OF ?ViewQBtn ; QueueViewListVLB(FromQ, ThingName, DeclareQ)
         END
         CASE FIELD()
@@ -4884,28 +5162,14 @@ AtRGQ  LONG,DIM(4),STATIC
     PrvCls.AtSetOrSave(2, AtRGQ[])
     CLOSE(RefWnd)
     RETURN
-!----------------------
-!CBWndPreviewClass.QueueReflection PROCEDURE(*QUEUE FromQ, STRING FromWho) !View Queue without Window for Roberto Artigas
-!DeclareQ QUEUE(QueDeclareType),PRE(DecQ).
-!Window WINDOW('Q'),AT(,,316,280),GRAY,SYSTEM,MAX,FONT('Segoe UI',9),RESIZE
-!        BUTTON('&Copy Declare'),AT(2,2,,12),USE(?CopyBtn),SKIP,TIP('Copy Queue Declaration')
-!        BUTTON('&View Queue Records'),AT(65,2,,12),USE(?ViewBtn),SKIP,TIP('View Queue Records')
-!        LIST,AT(1,17),FULL,USE(?LIST:DeclareQ),VSCROLL,FONT('Consolas',10),FROM(DeclareQ), |
-!                FORMAT('28C|FM~Fld<13,10>No.~@n3@135L(2)|FM~Field Name~@s64@?61L(2)|FM~Type~C(0)@s16' & |
-!                '@24R(6)|FM~Type<13,10>No.~C(0)@n3@30L(6)|FM~Has<13,10>Value~C(0)@n3@33L(2)F~How<13>' & |
-!                '<10>Many~@n4@')
-!    END
-!    CODE
-!    OPEN(Window) ; DISPLAY ; QueueDeclareGet(FromQ,DeclareQ)
-!    0{PROP:Text}=FromWho & ' - ' & Records(DeclareQ) & ' Fields - ' & Records(FromQ) & ' Records ' & |
-!                               ' - &Queue=' & Hex8(INSTANCE(FromQ,Thread())) & ' - Address=' & Hex8(Address(FromQ))
-!    ACCEPT
-!        CASE ACCEPTED()
-!        OF ?CopyBtn ; SetClip2Queue(DeclareQ)
-!        OF ?ViewBtn ; QueueViewListVLB(FromQ, FromWho, DeclareQ)
-!        END
-!    END
-!    RETURN
+GenEqRtn ROUTINE
+  LOOP X=1 TO RECORDS(DeclareQ) ; GET(DeclareQ,X) ; L=LEN(CLIP(DecQ:Name)) ; IF L>M THEN M=L. ; END
+  L=PopupUnder(?,'Field = |Field =   !Data Type') ; IF ~L THEN EXIT.
+  A='    CLEAR(' & CLIP(ThingName) &')<13,10>'
+  LOOP X=1 TO RECORDS(DeclareQ) ; GET(DeclareQ,X)
+      A=A&'    '& CHOOSE(GrpClsFilQue=2,'SELF.','') & SUB(DecQ:Name,1,M)&' =' & CHOOSE(L=1,'',' {9}! ' & CLIP(DecQ:DType))&'<13,10>'
+  END  
+  SETCLIPBOARD(A) ; CLEAR(A)
 !----------------------
 CBWndPreviewClass.ListPROPs  PROCEDURE(LONG ListFEQ, LONG FeqTypeNo, STRING FeqTypeName, STRING FeqName)
 !TODO Tab for FROM if it is Text, as 1 string and split into lines 
@@ -5040,7 +5304,7 @@ ColumnProps  EQUATE() !               !TODO. WIll need to keep the Number of the
             END
 SortPQCls CBSortClass
   CODE
-  GETPOSITION(0,PX,PY) ; FEQ=ListFEQ
+  SELF.BoxIt() ; GETPOSITION(0,PX,PY) ; FEQ=ListFEQ
   CList.WndPrvCls &= SELF ; CList.LoadListQ()
   OPEN(Window) ; SysMenuCls.Init(Window) ; ?Sheet1{PROP:TabSheetStyle}=1    
   L=?LIST:ListQ ; L{PROP:SELECTED}=1 ; LineHt(L) ; L{PROPLIST:Width,MoreColNo}=0
