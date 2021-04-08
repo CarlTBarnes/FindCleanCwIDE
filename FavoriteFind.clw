@@ -7,6 +7,8 @@
 !   so they are always in the same place ready to use
 !This will eventually be folded into FindClean so it always saves your list
 !----------------------------------------------------------------
+! 04-Apr-2021 Fix Favorite Sort to save to INI
+!----------------------------------------------------------------
   PROGRAM
   INCLUDE('KeyCodes.CLW')
   INCLUDE('ResDef.CLW'),ONCE  !Project needs ResCode.CLW
@@ -68,7 +70,7 @@ XmlFile                STRING(260)       !ClaPropQ:XmlFile
 FavoriteFindWindow   PROCEDURE() 
 FavFind_Txt_FN      EQUATE('FavFind.txt')
 FavFind_TEXT        STRING(8000)
-FavFindSort         BYTE(0)
+FavorSort           BYTE(0)
 
 FindQ       QUEUE,PRE(FndQ) ! FindQ          MergeQ         FavorQ
 Seq             SHORT       ! FndQ:Seq       MerQ:Seq       FavQ:Seq     
@@ -110,8 +112,8 @@ Window WINDOW('Favorite Find Patterns Append in ClarionProperties.xml'),AT(,,465
                         AT(58,18,361,16),USE(?PROMPT:CfgDirFYI),TRN,FONT(,9)
                 TEXT,AT(58,36,170),FULL,USE(FavFind_TEXT),SKIP,HVSCROLL,FONT('Consolas',,COLOR:BTNTEXT),TIP('From FavFin' & |
                         'd.Txt.<13><10>Edits are not saved.'),READONLY
-                PROMPT('Sort'),AT(10,125),USE(?FavFindSort:Pmt)
-                LIST,AT(10,135,36,10),USE(FavFindSort),TIP('Sort order for Favorites loaded from file FavFind.txt'),DROP(9,50), |
+                PROMPT('Sort'),AT(10,125),USE(?FavorSort:Pmt)
+                LIST,AT(10,135,36,10),USE(FavorSort),TIP('Sort order for Favorites loaded from file FavFind.txt'),DROP(9,50), |
                         FROM('As Is|#0|Reverse|#1|A-Z|#2|Z-A|#3')
                 LIST,AT(234,36,180),FULL,USE(?List:FavorQ),VSCROLL,FONT('Consolas'),VCR,FROM(FavorQ),FORMAT('17R(2)|M~Se' & |
                         'q~L(2)@n3@17R(2)|M~Len~L(2)@n-4b@120L(2)|FM~Find What~@s96@?'),ALRT(DeleteKey)
@@ -151,7 +153,7 @@ Window WINDOW('Favorite Find Patterns Append in ClarionProperties.xml'),AT(,,465
 DOO     CLASS                         
 FavFindTxtLoadFile      PROCEDURE()         !Load FavFind_TEXT from FavFind.Txt
 FavorQLoadFavFind_Txt   PROCEDURE()         !Load FavorQ from FavFind_TEXT    
-FavorQSortAsDesired     PROCEDURE()         !Sort FavorQ based on FavFindSort
+FavorQSortAsDesired     PROCEDURE()         !Sort FavorQ based on FavorSort
 FavorQCopy2Clip         PROCEDURE() 
 ClarionPropLoadQueues   PROCEDURE()         !Load FindQ from Cla Prop.Xml
 ClarionPropLoadFindQ    PROCEDURE(),STRING  
@@ -166,6 +168,7 @@ SettingsLoad            PROCEDURE()
 SettingsSave            PROCEDURE()
         END
     CODE
+    DOO.SettingsLoad()
     OPEN(Window)               !<--- Windows is Open 
     COMPILE('!-WndPrv-',_IFDef_CBWndPreview_)  
        WndPrvCls.Init(1)   
@@ -195,7 +198,7 @@ SettingsSave            PROCEDURE()
         OF ?FavFindTxtReloadBtn  ; DOO.FavFindTxtLoadFile() 
                                      POST(EVENT:Accepted, ?FavFindTxtReParseBtn )
         OF ?FavFindTxtReParseBtn ; DOO.FavorQLoadFavFind_Txt()     
-        OF ?FavFindSort          ; DOO.FavorQSortAsDesired() 
+        OF ?FavorSort            ; DOO.FavorQSortAsDesired() 
         OF ?FavorQCopyBtn        ; DOO.FavorQCopy2Clip()        
         OF ?FavFindTxtReloadBtn  ; DOO.FavFindTxtLoadFile() ; DISPLAY
         OF ?FavFindTxtNotepadBtn ; RUN('Notepad ' & FavFind_Txt_FN)  
@@ -270,7 +273,7 @@ SettingsSave            PROCEDURE()
 DOO.SettingsLoad     PROCEDURE() 
 LastClaPropXml       LIKE(Glo:ClaPropFileName)
     CODE 
-    FavFindSort       =GETINI('Config','FavFindSort',Glo:AlphaRecent   ,SettingFile)
+    FavorSort         =GETINI('Config','FavorSort'  ,FavorSort         ,SettingFile)
     Glo:FavMinPatterns=GETINI('Config','FavMinPats' ,Glo:FavMinPatterns,SettingFile)    
     Glo:AlphaRecent   =GETINI('Config','AlphaRecent',Glo:AlphaRecent   ,SettingFile) 
 
@@ -281,7 +284,7 @@ LastClaPropXml       LIKE(Glo:ClaPropFileName)
     RETURN 
 DOO.SettingsSave     PROCEDURE() 
     CODE 
-    PUTINI('Config','FavFindSort',Glo:AlphaRecent   ,SettingFile)
+    PUTINI('Config','FavorSort'  ,FavorSort   ,SettingFile)
     PUTINI('Config','FavMinPats' ,Glo:FavMinPatterns,SettingFile)    
     PUTINI('Config','AlphaRecent',Glo:AlphaRecent   ,SettingFile)     
     IF Glo:LastSavedClaProp AND EXISTS(Glo:LastSavedClaProp) THEN 
@@ -340,9 +343,9 @@ X       LONG
     ?List:FavorQ{PROPLIST:Header,3}='Favorites - ' & Records(FavorQ)
     RETURN     
 !--------------------------------------
-DOO.FavorQSortAsDesired PROCEDURE()  !Sort FavorQ based on FavFindSort
+DOO.FavorQSortAsDesired PROCEDURE()  !Sort FavorQ based on FavorSort
     CODE 
-    CASE FavFindSort
+    CASE FavorSort
     OF 0 ; SORT(FavorQ, -FavQ:Head1,  FavQ:Seq)
     OF 1 ; SORT(FavorQ, -FavQ:Head1, -FavQ:Seq)
     OF 2 ; SORT(FavorQ, -FavQ:Head1,  FavQ:LowerTxt)
