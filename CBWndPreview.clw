@@ -3,7 +3,7 @@
 ! CBWndPreviewClass (c) Carl Barnes 2018-2021 - MIT License
 ! Download: https://github.com/CarlTBarnes/WindowPreview
 !------------------------------------------------------------
-VersionWndPrv EQUATE('WndPrv 04-08-21.0826')
+VersionWndPrv EQUATE('WndPrv 06-12-21.0111')  !11.1
     INCLUDE('KEYCODES.CLW'),ONCE
     INCLUDE('EQUATES.CLW'),ONCE
 CREATE:Slider_MIA   EQUATE(36)      !Not defined in Equates until C11 sometime
@@ -107,6 +107,7 @@ If1Clear            PROCEDURE(*? TFV, LONG AcceptFEQ),BOOL,PROC,PRIVATE
 GroupMoveChildren   PROCEDURE(LONG FromGroup, LONG ToControl, LONG XAdjust=0, LONG YAdjust=0),PRIVATE 
 KeyStateSCA         PROCEDURE(BYTE Shft1_Ctrl2_Alt4),BYTE,PRIVATE
 LineHt              PROCEDURE(LONG ListFEQ, SHORT LineHeightAdd=1),PRIVATE !List Prop:LineHeight +=1
+ListColumnPositions PROCEDURE(LONG ListFEQ, *QUEUE OutColumnPosQ)
 ListDrop            PROCEDURE(LONG ListFEQ, BYTE Down0_Up1=0),PRIVATE
 ListFormatDejaVu    PROCEDURE(LONG ListFEQ, STRING WindowID, BYTE Closing=0)
 ListHelpCW          PROCEDURE(LONG SetBtnTip=0),PRIVATE
@@ -693,7 +694,8 @@ ReOpenLOOP:Label:
   FldQ:FeqName = 0{PROP:Text}     
   OPEN(Window) ; SysMenuCls.Init(Window) ; SELF.AtSetOrSave(1, AtWndReflect[], AtNoSetXY) ; AtNoSetXY=0 
   ?MenuItems{PROP:Use}=SELF.MenuItemShows
-  0{PROP:Text} = 'CB wInspect - Controls: ' & CLIP(FldQ:FeqName) &' '& Glo:Built &' - '& VersionWndPrv &'  '& PWnd{'Proc_Name'}
+  0{PROP:Text} = 'CB wInspect - Controls: ' & CLIP(FldQ:FeqName) &' '& Glo:Built &' - '& VersionWndPrv
+  IF PWnd{'Proc_Name'} THEN 0{PROP:Text}=PWnd{'Proc_Name'} &' - '& 0{PROP:Text}. !Tpl Procedure Name
   IF Format_ListF THEN ?ListF{PROP:Format}=Format_ListF.
   LineHt(?ListF)
   ?ListF{PROPSTYLE:FontName,1}='Wingdings 2'
@@ -992,7 +994,6 @@ Trick_DevTips_LIST_Rtn ROUTINE
 ColX        USHORT,AUTO
 InX         LONG,AUTO
 GrpNo       SHORT
-!GrpCnt      SHORT
 LastGrpNo   SHORT
 ColsInGrp   SHORT
 AlnCol      PSTRING(8)
@@ -1673,7 +1674,7 @@ A   LONG,DIM(4)
     SELF.PropQAdd(PQ, PROP:Type, 'Type', FeqTypeName )  
     PQ:Name=' At Pos XYWH' ; PWnd{PROP:Pixels}=0
     LOOP 2 TIMES
-        GETPOSITION(PWnd,A[1],A[2],A[3],A[4])
+        GETPOSITION(FEQ,A[1],A[2],A[3],A[4])
         SELF.PropQAdd(PQ,PROP:At, PQ:Name, A[1] &','& A[2] &' x '& A[3] &','& A[4] & |
                                    '  BottomX,RightY=' & A[1]+A[3] &','& A[2]+A[4] & CHOOSE(~Feq{PROP:Full},'','  FULL') )    
         PQ:Name=CLIP(PQ:Name) & '-Pixels' ; PWnd{PROP:Pixels}=1
@@ -1717,7 +1718,11 @@ A   LONG,DIM(4)
     END
     IF FeqTypeNo=CREATE:List OR FeqTypeNo=CREATE:Combo ! Feq{PROP:Format} THEN 
         Val='{{PROPLIST:Exists,0} = ' & Feq{PROPLIST:Exists,0} & '  (Column Count)'
-        SELF.PropQAdd(PQ,PROPLIST:Exists,'Columns Format',Val) ; SELF.PropQAdd(PQ,PROPLIST:Exists,'Format Columns',Val)
+        SELF.PropQAdd(PQ,PROPLIST:Exists,'Columns Format',Val) ; SELF.PropQAdd(PQ,PROPLIST:Exists,'Format Columns',Val) 
+        LOOP X=1 TO 255
+             PQ:Value=Feq{PROP:IconList,X} ; IF ~PQ:Value THEN CYCLE. ; ClaIconEquate(PQ:Value)
+             SELF.PropQAdd(PQ,PROP:IconList,'IconList,'& FORMAT(X,@n3),PQ:Value,,1) 
+        END 
     END    
     DO PropHuntRtn  !Hunt thru a list of many properties
     SELF.Win32PropsAdd(PQ, FEQ{PROP:Handle}, FEQ, FeqTypeNo)     !Add Windows API properties
@@ -1758,12 +1763,11 @@ ScanRtn     ROUTINE !Scan for undocumented props 7900h-7DFFh
   SETTARGET(SELF.WndRef)
   LOOP PE = 7900h to 7E00h - 1   !7E00h=PropList
     CASE PE
-    OF   PROP:Ypos OROF PROP:Width OROF PROP:Height                !OF   PROP:Xpos OR  !These can come out TODO ?
-    OROF PROP:ClientY OROF PROP:ClientWidth OROF PROP:ClientHeight ! OROF PROP:ClientX 
+    OF   PROP:ClientY OROF PROP:ClientWidth OROF PROP:ClientHeight ! OROF PROP:ClientX 
     OROF PROP:FEQ OROF PROP:Target OROF PROP:Selected OROF PROP:OldTreeColor
-    OROF PROP:NextTabStop OROF PROP:PrevTabStop
+    OROF PROP:NextTabStop OROF PROP:PrevTabStop OROF PROP:IconList OROF PROP:NextField
         CYCLE 
-    OF 7C20H TO 7C28H ; CYCLE !PROPLIST:MouseDownRow ... UpZone            
+    OF PROPLIST:MouseDownRow TO PROPLIST:MouseUpZone ; CYCLE
     END
     Val=Feq{PE}
     IF ~Val THEN CYCLE.    
@@ -1873,13 +1877,16 @@ LoadPQRtn ROUTINE
     EXIT
 PropHuntRtn ROUTINE
     DATA        !CPI  ChildIndex Enabled Follows Handle NextTabStop Parent Precedes PrevTabStop RejectCode Type USE UseAddress Visible WNDProc-STD-ScreenText
-SkipPROP STRING('7C5Bh7A18h7CA8h7C99h7C96h7A56h7A07h7A7Eh7A57h7A1Bh7C01h7A10h7A52h7CA7h7CB4h7C82h7CBAh')
+SkipPROP STRING('7C5Bh7A18h7CA8h7C99h7C96h7A56h7A07h7A7Eh7A57h7A1Bh7C01h7A10h7A52h7CA7h7CB4h7C82h7CBAh') !11.1 7C15 fixed below
                  !-INS-UPR-CAP-IMM-OVR-Password-REQ-ReadOnly       
-KeepENTRY STRING('7C57h7C89h7C5Ah7C6Ah7C58h7C7Ah7C7Ch7C7Bh') 
+KeepENTRY STRING('7C57h7C89h7C5Ah7C6Ah7C58h7C7Ah7C7Ch7C7Bh')
 EquateH5  STRING(5)  !Equate ####h
 P7Q Parse7QType          
 TB  STRING('<9>') !Tab shows in list
   CODE
+                    COMPILE('!**END 11.1**', _C111_)
+  SkipPROP[1:5]='7C15h'    !7C5Bh in C11.0
+                             !**END 11.1**  
   PropHuntLoadP7Q(P7Q,FeqTypeNo)
   LOOP X=1 TO RECORDS(P7Q) ; GET(P7Q, X)
     EquateH5=P7Q:EqtHex
@@ -1967,8 +1974,14 @@ PropTrashDelete PROCEDURE(PropQType PQ)
 X USHORT,AUTO
 IsBad USHORT,AUTO
 IsCtrlDown BYTE,AUTO
-Bad_Prop STRING('7C5Bh 7C96h 7CB4h 7CFAh 7C5Bh 7C5Dh 7CA8h 7CFAh 7A3Ah 7C12h 7C10h 7C11h 7C13h 7C57h 7C58h 7A1Bh 7CFBh 7CFCh 7A10h 7A52h 7CA7h Win32 ' & | !CPI Enabled Handle Visible WNDProc 
-                '7C29h 7C23h 7C20h 7C26h 7C24h 7C21h 7C27h 7C25h 7C22h 7C28h 7A56h 7A57h ') !List
+                    OMIT('!**END 11.0**', _C111_)
+Bad_Prop STRING('7C96h 7CB4h 7CFAh 7C5Dh 7CA8h 7CFAh 7C12h 7C10h 7C11h 7C13h 7C57h 7C58h 7A1Bh 7CFBh 7CFCh 7A10h 7A52h 7CA7h 7A56h 7A57h Win32 ' & | !Enabled Handle Visible WNDProc 
+                '7C5Bh 7A3Ah 7C20h 7C21h 7C22h 7C23h 7C24h 7C25h 7C26h 7C27h 7C28h 7C29h ') !11.0 CPI FontCharSet ListProp Mouse
+                          !**END 11.0**'
+                    COMPILE('!**END 11.1**', _C111_)  !1st line is same
+Bad_Prop STRING('7C96h 7CB4h 7CFAh 7C5Dh 7CA8h 7CFAh 7C12h 7C10h 7C11h 7C13h 7C57h 7C58h 7A1Bh 7CFBh 7CFCh 7A10h 7A52h 7CA7h 7A56h 7A57h Win32 ' & | !Enabled Handle Visible WNDProc 
+                '7C15h 7C14h 7ED0h 7ED1h 7ED2h 7ED3h 7ED4h 7ED5h 7ED6h 7ED7h 7ED8h 7ED9h ') !11.1 CPI FontCharSet
+                             !**END 11.1**
 Bad_Zero STRING('7CE9h 7CE5h 7CE4h 7CE6h ') ! Angle Bevel
     CODE 
     IsCtrlDown=KeyStateSCA(2)     
@@ -2199,7 +2212,7 @@ P7Q Parse7QType
   END 
   LOOP X=1 TO 3
      FntCat=CHOOSE(X,'','Tips ','Status ')
-     FP=CHOOSE(X,0, PROP:TipsFont ,PROP:StatusFont )   !' StatusFont0014 TipsFont0010'
+     FP=CHOOSE(X,0, PROP:TipsFont ,PROP:StatusFont )   !' StatusFont0014 (11.1 0016) TipsFont0010'
      PE = FP + PROP:FontName    ; SELF.PropQAdd(PQ, PE, FntCat & 'FontName', SYSTEM{PE})
      PE = FP + PROP:FontSize    ; SELF.PropQAdd(PQ, PE, FntCat & 'FontSize', SYSTEM{PE})
      PE = FP + PROP:FontStyle   ; SELF.PropQAdd(PQ, PE, FntCat & 'FontStyle', SYSTEM{PE})
@@ -4091,7 +4104,27 @@ KeyStateSCA PROCEDURE(BYTE S1C2A4)
 !-----------
 LineHt PROCEDURE(LONG F, SHORT L)
   CODE ; F{PROP:LineHeight}=L+F{PROP:LineHeight}
-!---------
+!------------------  
+ListColumnPositions PROCEDURE(LONG ListFEQ, *QUEUE PosQueue) 
+EipFEQ LONG,AUTO
+ListX  LONG,AUTO 
+ListY  LONG,AUTO 
+CPQ GROUP,PRE(),AUTO 
+P LONG,DIM(4)
+    END      
+C USHORT,AUTO
+  CODE 
+  SETTARGET(PWnd)
+  GETPOSITION(ListFEQ,ListX,ListY)
+  EipFEQ=CREATE(0,CREATE:Button)  
+  LOOP C=1 TO ListFEQ{PROPList:Exists,0}
+     ListFEQ{PROP:Edit,C}=EipFEQ 
+     GETPOSITION(EipFEQ,P[1],P[2],P[3],P[4]) ; ListFEQ{PROP:Edit,C}=0
+     P[1]+=ListX ; P[2]+=ListY
+     PosQueue=CPQ ; ADD(PosQueue)
+  END 
+  DESTROY(EipFEQ) ; SETTARGET()  
+  RETURN 
 ListDrop PROCEDURE(LONG F, BYTE U=0)  !0=Dn 1=Up
   CODE  !CB_SHOWDROPDOWN = &H14F
   PostMessage(PWnd$F{PROP:Handle},14Fh,U-1,0)
@@ -4224,12 +4257,12 @@ H LONG,AUTO
 !-----------------------------------------
 PropHuntLoadP7Q     PROCEDURE(Parse7QType OutP7Q, LONG FeqTypeNo)
 CPGroup  GROUP,PRE()
-    !sheet  Above7C0A AboveSize7C0B Below7C06 BelowSize7C07  Decimal7C0A DecimalOffSet7C0B 
+    !sheet  Above7C0A AboveSize7C0B Below7C06 BelowSize7C07  Decimal7C0A DecimalOffSet7C0B
 CP1 STRING('7C00Text 7C01Type 7C08Left 7C09LeftOffSet 7C0CRight 7C0DRightOffSet'&|  !lower 7C06Center 7C07CenterOffSet
- ' 7C10FontName 7C11FontSize 7C12FontColor 7C13FontStyle 7C14RangeLow 7C15RangeHigh'&| !7C10Font Array 4
+ ' 7C10FontName 7C11FontSize 7C12FontColor 7C13FontStyle'&| !7C10Font Array 4   11.1  7C14RangeLow 7C15RangeHigh
  ' 7C16VCR 7C17VCRFeq 7C1AResize 7C40Sum'&| ! 7C1BNoFrame  7C19Double  7C19Both 7C1BNoTicks 
  ' 7C41Ave 7C42Max 7C43Min 7C44CNT 7C45PageNo 7C50Page 7C51Absolute 7C52Alone 7C55First'&|
- ' 7C56Last 7C57INS 7C58OVR 7C59Boxed 7C5ACAP 7C5BCPI 7C5CColumn 7C5DCursor 7C5EDefault'&|
+ ' 7C56Last 7C57INS 7C58OVR 7C59Boxed 7C5ACAP 7C5CColumn 7C5DCursor 7C5EDefault'&|  !11.1  7C5BCPI
  ' 7C5FDisable 7C60Drop 7C61Fill 7C62From 7C63Full 7C64Gray 7C65Hide 7C66HLP 7C67HScroll'&|
  ' 7C68Icon 7C69Iconize 7C6AIMM 7C6CLandscape 7C6DMark 7C6EMask 7C6FMaximize 7C70Mdi'&| !Key7C6B
  ' 7C71Meta 7C72Modal 7C73MSG 7C74NoBar 7C75NoMerge 7C76PageAfter 7C77PageAfterNum 7C78PageBefore'&|
@@ -4243,21 +4276,32 @@ CP1 STRING('7C00Text 7C01Type 7C08Left 7C09LeftOffSet 7C0CRight 7C0DRightOffSet'
  ' 7CE9Angle 7CFAColor 7CFAFillColor 7CFBSelectedColor 7CFCSelectedFillColor 7CFDLineHeight'&| !dup Background7CFA 
  ' 7CFEDropWidth 7CFFAlwaysDrop 7A00Up 7A01Down 7A02UpsideDown 7A03HeaderHeight 7A04Checked'&|
  ' 7A06Single 7A07Parent 7A08Repeat 7A0FDelay 7A10USE 7A12ListFEQ 7A13ButtonFEQ 7A14Flat'&|
- ' 7A19InToolBar 7A1BRejectCode 7A3AFontCharSet 7A40NoWidth 7A41NoHeight 7A43XOrigin'&|
+ ' 7A19InToolBar 7A1BRejectCode 7A40NoWidth 7A41NoHeight 7A43XOrigin'&| !11.1 chg 7A3AFontCharSet
  ' 7A44YOrigin 7A47Dock 7A48Docked 7A49BrokenTabs 7A52UseAddress 7A56NextTabStop 7A57PrevTabStop 7A58PropVScroll 7A5ALayout'&| !Makes sense for FOCUS() 7A56NextTabStop 7A57PrevTabStop
  ' 7A5EThemeActive 7A73TextLeftMargin 7A74TextRightMargin 7A75State3Value 7A78NoFont'&|
  ' 7A7EPrecedes 7904NoTheme 7905GradientToColor 7906GradientType 7C86Timer 7903TabSheetStyle'&|
- ' 7CB4WNDProc 7CB5ClientWNDProc 7A18ChildIndex 7C29LIST:Grid 7C2AList:DefHdrTextColor'&| !Indexed 7D0AChild
- ' 7C2BList:DefHdrBackColor 7C2CList:HdrSortTextColor 7C2DList:HdrSortBackColor 7C2EList:SortTextColor'&|
- ' 7C2FList:SortBackColor 7C30List:HasSortColumn 7C31List:SortColumn 7A55WheelScroll'&|
- ' 7C02XPos 7C03YPos 7C04Width 7C05Height 7A80OriginalWidth 7A81OriginalHeight ')  !11.13505
-
+ ' 7CB4WNDProc 7CB5ClientWNDProc 7A18ChildIndex' &|  !Indexed 7D0AChild
+ ' 7A55WheelScroll 7C02XPos 7C03YPos 7C04Width 7C05Height 7A80OriginalWidth 7A81OriginalHeight ')  !11.13505
+                    OMIT('!**END 11.0**', _C111_)
+CP11 STRING(' 7A3AFontCharSet 7C5BCPI 7C14RangeLow 7C15RangeHigh ' &| !11.0   
+                 '7C29List:Grid 7C2AList:DefHdrTextColor 7C2BList:DefHdrBackColor 7C2CList:HdrSortTextColor 7C2DList:HdrSortBackColor 7C2EList:SortTextColor 7C2FList:SortBackColor 7C30List:HasSortColumn 7C31List:SortColumn ') 
+                          !**END 11.0**'
+                    COMPILE('!**END 11.1**', _C111_)  !1st line is same
+CP11 STRING(' 7C14FontCharSet 7C15CPI 7CE0RangeLow 7CE1RangeHigh ' &| !11.1
+                 '7ED9List:Grid 7EDAList:DefHdrTextColor 7EDBList:DefHdrBackColor 7EDCList:HdrSortTextColor 7EDDList:HdrSortBackColor 7EDEList:SortTextColor 7EDFList:SortBackColor 7EE0List:HasSortColumn 7EE1List:SortColumn ') !11.1
+                             !**END 11.1**
 CP_Slider_NA STRING(' 7CA6Progress 7C19Double 7C1BNoFrame ')
 CP_Slider    STRING(' 7CA6SliderPos 7C19Both 7C1BNoTicks ')
 CP_Sheet_NA  STRING(' 7C06Center 7C07CenterOffSet 7C0ADecimal 7C0BDecimalOffSet ') !Dup Sheet
-CP_Sheet     STRING(' 7C06Below 7C07BelowSize 7C0AAbove 7C0BAboveSize ')
-CP_LIST      STRING(' 7A23FromQRef 7C20List:MouseDownRow 7C21List:MouseMoveRow 7C22List:MouseUpRow 7C23List:MouseDownField'&|
+CP_Sheet     STRING(' 7C06Below 7C07BelowSize 7C0AAbove 7C0BAboveSize ')  
+                    OMIT('!**END 11.0**', _C111_)
+CP_LIST      STRING(' 7A23FromQRef 7C20List:MouseDownRow 7C21List:MouseMoveRow 7C22List:MouseUpRow 7C23List:MouseDownField'&|  !11.0
                     ' 7C24List:MouseMoveField 7C25List:MouseUpField 7C26List:MouseDownZone 7C27List:MouseMoveZone 7C28List:MouseUpZone ')
+                          !**END 11.0**'
+                    COMPILE('!**END 11.1**', _C111_)  !1st line is same
+CP_LIST      STRING(' 7A23FromQRef 7ED0List:MouseDownRow 7ED1List:MouseMoveRow 7ED2List:MouseUpRow 7ED3List:MouseDownField'&|  !11.1
+                    ' 7ED4List:MouseMoveField 7ED5List:MouseUpField 7ED6List:MouseDownZone 7ED7List:MouseMoveZone 7ED8List:MouseUpZone ')
+                             !**END 11.1**
 CP_REPORT    STRING(' 7A46Together 7C8CWithNext 7C8DWithPrior ')
 CP_WINDOW    STRING(' 7A71ToolBar 7A72MenuBar ')
 CP_OLEOCX    STRING(' 7CEAAutoSize 7CEBClip 7CECStretch 7CEDZoom 7CEECompatibility 7CEFDesign 7CF0Document 7CF1Link 7CF2Align 7CF3Cancel 7CF4TextAlign 7CF5Object 7CF6License 7CF8Language 7CF9Interface' & |
@@ -4409,7 +4453,7 @@ X LONG,AUTO
        OF CREATE:Check  ; FQSM='Value("' & F{PROP:Value,1} &'","'& F{PROP:Value,2} &'")' ; IF FQSM='Value("","")' THEN FQSM=''.
        OF Create:State3 ; FQSM='Value("' & F{PROP:Value,1} &'","'& F{PROP:Value,2} &'" , "'& F{PROP:Value,3} &'"'  ; IF FQSM='Value("","","")' THEN FQSM=''.
        OF Create:List OROF CREATE:Combo OROF CREATE:DropList OROF CREATE:DropCombo ; FQSM=F{PROP:From} ; IF FQSM THEN FQSM='From(' & CLIP(FQSM) &')'.
-       OF Create:Spin OROF CREATE:Progress ; FQSM=F{PROP:From} ; IF ~FQSM THEN FQSM='Range(' & F{7C14H,1} &' - '& F{7C14H,2} &' by '& F{7C83H} &')'.
+       OF Create:Spin OROF CREATE:Progress ; FQSM=F{PROP:From} ; IF ~FQSM THEN FQSM='Range(' & F{Prop:RangeLow} &' - '& F{Prop:RangeHigh} &' by '& F{PROP:Step} &')'.
        OF CREATE:Button ; X=F{PROP:Std} ; IF X THEN FQSM=ClaSTDprop(X).
        END
     END
@@ -5406,8 +5450,13 @@ FromP LONG
 PROP:FromPtr  EQUATE(7A0EH) !ABLLIST.INT &= IMappedListContents ? 0800xxxxH usually, 7C98h also an II ptr?
 PROP:FromQRef EQUATE(7A23H) !Showed up in 13505 = &QUEUE unless no FROM(Q) then ?= Interface for WB see 0800xxxxh
   CODE
-  IF CList.FromIsText(PWnd$ListFEQ{PROP:From}) THEN EXIT. ; IF PWnd$ListFEQ{PROP:VLBval}>0 THEN Message('VLB') ; EXIT.
-  Val=PWnd$ListFEQ{'FromWho'} ; IF ~Val THEN Val='From(Q)'. ; FromWho=CLIP(Val) 
+  IF CList.FromIsText(PWnd$ListFEQ{PROP:From}) THEN EXIT.
+  IF PWnd$ListFEQ{PROP:VLBval}>0 THEN
+     MESSAGE('LIST is a VLB. If this is a Preview the Queue was replaced by CB VLB Preview.'&|
+     '||For a LIST From(Queue) press Shift when clicking the Preview button, then |hold down Shift until the preview appears.','Virtual List Box')
+     EXIT
+  END
+  Val=PWnd$ListFEQ{'FromWho'} ; IF ~Val THEN Val='From(Q)'. ; FromWho=CLIP(Val)
   DO MoreHeadRtn ; ?LIST:FrmFldQ{PROPLIST:Header,3}=FromWho
   IF FromQ&=NULL THEN 
      FromA=PWnd$ListFEQ{'FromQ'}
@@ -6396,10 +6445,10 @@ GridArea    &USHORT
 GridAreaS4  STRING(4) 
 GridAppend  BYTE,STATIC
 GridHVB  STRING('B'),STATIC
-GLWindow WINDOW('Guide and Grid Lines'),AT(,,156,194),GRAY,SYSTEM,FONT('Segoe UI',9),DOUBLE
+GLWindow WINDOW('Guide and Grid Lines'),AT(,,156,204),GRAY,SYSTEM,FONT('Segoe UI',9),DOUBLE
         GROUP(' Guide Lines '),AT(6,1,145,89),USE(?GRP1),BOXED
-            string('X / Y'),AT(58,10),USE(?GdHead1)
-            string('Width'),AT(101,10),USE(?GdHead2)
+            STRING('X / Y'),AT(58,10),USE(?GdHead1)
+            STRING('Width'),AT(101,10),USE(?GdHead2)
             PROMPT('&Horizontal:'),AT(13,22),USE(?GdH:Pmt)
             SPIN(@n_5),AT(49,21,40),USE(Poz:GuideXY[1,2]),HVSCROLL,RANGE(0,999),STEP(-1)
             SPIN(@n2),AT(102,21,20),USE(Poz:GuideWd[1]),RANGE(0,99)
@@ -6409,9 +6458,9 @@ GLWindow WINDOW('Guide and Grid Lines'),AT(,,156,194),GRAY,SYSTEM,FONT('Segoe UI
             CHECK('No G&uide Lines'),AT(13,53,,11),USE(?HideGuides),SKIP
             BUTTON,AT(127,30,10,10),USE(?GuideColorBtn),SKIP
             BUTTON('&Snap to PROMPT'),AT(13,68,66,14),USE(?SnapToFEQ)
-            BUTTON('&Snap to Window'),AT(82,68,58,14),USE(?SnapToWnd)
+            BUTTON('Snap to &Window'),AT(82,68,58,14),USE(?SnapToWnd)
         END
-        GROUP(' Grid Lines '),AT(6,95,146,79),USE(?GRP2),BOXED
+        GROUP(' Grid Lines '),AT(6,95,146,89),USE(?GRP2),BOXED
             PROMPT('&Increment:'),AT(13,107),USE(?GrdInc:Pmt)
             SPIN(@n2),AT(53,106,30),USE(Cfg:GridInc),HVSCROLL,RANGE(5,99)
             PROMPT('&Thick Every:'),AT(13,123),USE(?Grd5th:Pmt)
@@ -6428,18 +6477,19 @@ GLWindow WINDOW('Guide and Grid Lines'),AT(,,156,194),GRAY,SYSTEM,FONT('Segoe UI
             END
             BUTTON('Add &Grid'),AT(13,155,37,11),USE(?GridBtn)
             BUTTON('&Remove'),AT(57,155,37,11),USE(?GridOffBtn)
-            CHECK('A&ppend'),AT(105,155),USE(GridAppend),SKIP,TIP('Add Grid to Existing e.g. NE and SW')
+            BUTTON('|   &List   |<13,10>Columns'),AT(104,155,39,22),USE(?ListGridBtn),DISABLE,TIP('Grid Lines over List Columns')
+            CHECK('A&ppend'),AT(13,170),USE(GridAppend),SKIP,TIP('Add Grid to Existing e.g. NE and SW')
         END
-        BUTTON('&Close'),AT(117,177,35,13),USE(?CloseBtn),SKIP,STD(STD:Close)
-        CHECK('&Lines on Top of Controls'),AT(6,179),USE(?TRNControls),SKIP
+        BUTTON('&Close'),AT(117,187,35,13),USE(?CloseBtn),SKIP,STD(STD:Close)
+        CHECK('&Lines on Top of Controls'),AT(6,189),USE(?TRNControls),SKIP
     END
 SysMenuCls SysMenuClass
-Px LONG
+Px LONG !PWnd Pos
 Py LONG
 Pw LONG
 Ph LONG   
 PRsz SHORT
-Fx LONG
+Fx LONG !Feq Pos
 Fy LONG
 Fw LONG
 Fh LONG
@@ -6464,6 +6514,7 @@ GdY &LONG
     HideGuides&=SELF.GGLines.GdHide       ; ?HideGuides{PROP:Use}=HideGuides
     ?GridColorBtn{PROP:Color}=Cfg:GridClr 
     ?SnapToFEQ{PROP:Text}='&Snap to ' & FeqTypeName ; ?SnapToFEQ{PROP:Tip}='Snap Guidelines to control: ' & FeqName &' '& CLIP(FeqTypeName) &' '& CLIP(FeqName) &' '& FEQ
+    IF PWnd$FEQ{PROP:Type}=CREATE:List AND PWnd$FEQ{PROP:Drop}=0 THEN ENABLE(?ListGridBtn).
     DO StartRtn ; DO SetPosition_Poz2PreviewRtn
     ACCEPT
       CASE ACCEPTED()
@@ -6475,6 +6526,7 @@ GdY &LONG
       OF ?GridColorBtn  ; IF ~COLORDIALOG('Select Grid Line Color', Cfg:GridClr) THEN CYCLE.  ; ?GridColorBtn{PROP:Color}=Cfg:GridClr ; SELF.ConfigPut(Cfg:GridClr)
       OF ?GridAreaS4 ; GridArea=GridAreaS4 ;  ?{PROP:Tip}='GridAreaS4=' & GridAreaS4 &'  GridArea=' & GridArea
       OF ?TRNControls ; DO TRNControlsRtn ; CYCLE 
+      OF ?ListGridBtn ; DO ListGridRtn ; CYCLE 
       END        
       CASE EVENT()
       OF EVENT:NewSelection ; POST(EVENT:Accepted,?)  !Spin 
@@ -6496,7 +6548,7 @@ BX2  LONG
 BY1  LONG
 BY2  LONG
     CODE   
-  IF ~GridAppend AND RECORDS(GridQ) THEN DO GridOffRtn.
+  IF ~GridAppend THEN DO GridOffRtn.
   IF Cfg:GridInc < 5 THEN Cfg:GridInc=5.
   Bx1=CHOOSE(GridAreaS4[1],0,GdX,Pw) ; Bx2=CHOOSE(GridAreaS4[3],0,GdX,Pw)
   By1=CHOOSE(GridAreaS4[2],0,GdY,Ph) ; By2=CHOOSE(GridAreaS4[4],0,GdY,Ph)
@@ -6515,11 +6567,28 @@ Grid1Rtn ROUTINE
    SETPOSITION(GdFEQ,Fx,Fy,0 ,Fh) 
   END 
   IF C AND Cfg:Grid5th AND C % Cfg:Grid5th=0 THEN GdFEQ{PROP:LineWidth}=2. ; C+=1 
- ! IF PRsz THEN GdFEQ{PROP:Full}=1.  TODO when???
   GdFEQ{PROP:Color}=Cfg:GridClr ; UNHIDE(GdFEQ)
-  ADD(GridQ,GridQ.LnFEQ)  
+  ADD(GridQ,GridQ.LnFEQ) 
 GridOffRtn ROUTINE
+  IF ~RECORDS(GridQ) THEN EXIT.
   SETTARGET(PWnd) ; LOOP GX=1 TO RECORDS(GridQ) ; GET(GridQ,GX) ; DESTROY(GridQ.LnFEQ) ; END ; FREE(GridQ) ; SETTARGET()
+!----------
+ListGridRtn ROUTINE
+  DATA
+ColPozQ QUEUE,PRE()
+ClmX LONG
+ClmY LONG
+ClmW LONG
+ClmH LONG
+     END
+  CODE
+  IF ~GridAppend THEN DO GridOffRtn.
+  ListColumnPositions(FEQ,ColPozQ) ; IF ~RECORDS(ColPozQ) THEN EXIT.
+  SETTARGET(PWnd)   ; GX=2 ; Fy=0 ; Fh=Ph
+  LOOP X=1 TO RECORDS(ColPozQ)
+     GET(ColPozQ,X) ; C=0 ; Fx=ClmX ; DO Grid1Rtn
+  END               ; C=0 ; Fx=ClmX+ClmW ; DO Grid1Rtn
+  SETTARGET()
 !---------------
 SnapToFEQRtn ROUTINE
  DATA
@@ -6581,7 +6650,7 @@ TRNControlsRtn ROUTINE
        F{PROP:TRN}=''
     END 
   END ; SETTARGET() 
-  EXIT         
+  EXIT  
 !=============  Event Logging ============= 06/26/20
 CBWndPreviewClass.EvtLogStart PROCEDURE(BYTE Confirm=0)
   CODE           !e.g. WndPrv_EventLog_20-06-26_070345.txt
