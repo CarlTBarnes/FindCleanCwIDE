@@ -23,6 +23,8 @@
 !Another problem is the list is no longer sorted in LIFO order making it useless.
 !This utility will trim those to a reasonable number for fast open and LIFO sorting. 
 !It finds <FindPatterns value="111<C3BF>222<C3BF>333<C3BF>444" /> and shrinks
+!----------------------------------------------------------------------------------
+! 05/09/22 - Added Template Registry Tab to monitor growth of the TRF file as noted in https://web.cwhandy.ca/april2022.html under April 2
 !---------------------------------------------------------------------------------- 
 !endRegion License and Comments
   PROGRAM
@@ -49,7 +51,7 @@ CleanViewSelectFile PROCEDURE(<STRING pOpenFileName>)  !FileDialog to Pick the f
 
 DB                  PROCEDURE(STRING OutDebugMessage) 
 DBClear             PROCEDURE() 
-ExplorerOpen        PROCEDURE(STRING FolderName)
+ExplorerOpen        PROCEDURE(STRING FolderName,<STRING SelectFileName>)
 NotepadOpen         PROCEDURE(STRING FileName)
 GetRegistryInstallsOfCW  PROCEDURE(QUEUE ClarionQ, *STRING ClaQ_RootPath, <*STRING ClaQ_ClarionName>, <*DECIMAL ClaQ_VersioNo>)
 GetFileDateTimeSize PROCEDURE(STRING inFileName,<*LONG outDate>,<*LONG outTime>,<*LONG outSize>,<*STRING outStamp>),BOOL
@@ -137,7 +139,20 @@ Repl        GROUP(IOStatsType). !CleanQ.Repl      =
         END       
 NoShowAbout BYTE
 WriteOK     BYTE      
-IDEClosed   BYTE      
+IDEClosed   BYTE
+
+TplRegistryQ  QUEUE,PRE(TplRegQ) !05/09/22 See how large TemplateRegistry gets 
+SubFolder      STRING(255)       !TplRegQ:SubFolder  !SoftVelocity\Clarion\#.# folder
+TrfFN          STRING(32)        !TplRegQ:TrfFN      !TemplateRegistry##.TRF
+Size           LONG              !TplRegQ:Size     
+Date           LONG              !TplRegQ:Date
+Time           LONG              !TplRegQ:Time     
+PathBS         PSTRING(256)      !TplRegQ:PathBS     !Full Path C:\Clarion10\Template\win\
+PathTip        STRING(256)       !TplRegQ:PathTip    
+VersionNo      DECIMAL(5,2)      !TplRegQ:VersionNo  !Version Number for Sort 
+Root           STRING(128)       !TplRegQ:Root
+            END
+            
 Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml'),AT(,,476,203),GRAY,IMM,SYSTEM, |
             ICON('FindCln.ico'),FONT('Segoe UI',10,,FONT:regular),RESIZE
         SHEET,AT(3,3,470,197),USE(?Sheet1)
@@ -229,6 +244,23 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                         '0L(2)|M~Clarion Properties~@s255@34R(2)|M~Date~C(0)@d1b@34R(2)|M~Time~C(0)@T3b@40R(2)|M~Size~C(' & |
                         '0)@n11b@257L(2)P~Path  -  Double Click to Open~@s255@'),ALRT(DeleteKey)
             END
+            TAB(' Template Registry '),USE(?TAB:TplRegistry)
+                BOX,AT(9,18,459,10),USE(?Box_TPLReg),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
+                PROMPT('Clarion TemplateRegistry.TRF files in \Clarion\Template\Win'),AT(12,18), |
+                        USE(?TPLReg:FYI),TRN
+                PROMPT('The Template Registry TRF file size can grow large and slow IDE processing. ' & |
+                        'This happens when templates are Re-Registered because the space taken by th' & |
+                        'e old template is not reused, nor the file ever shrunk, so the TRF file onl' & |
+                        'y grows.'),AT(9,31,455,18),USE(?PROMPT:TPLReg:FYI1),TRN
+                PROMPT('The cure to shrink the TRF is delete the TRF file (or rename it), then regis' & |
+                        'ter All the Templates. The shipping templates take 12 MB plus 3rd party can' & |
+                        ' grow that 2X-4X+. When size grows by 50% it would be a good point to shrin' & |
+                        'k the file. YMMV'),AT(9,50,455,17),USE(?PROMPT:TPLReg:FYI2),TRN
+                LIST,AT(9,72,458,123),USE(?List:TplRegistryQ),VSCROLL,FROM(TplRegistryQ), |
+                        FORMAT('45L(2)|FM~Folder~C(0)@s255@90L(2)|M~Registry File Name~@s255@50R(2)|' & |
+                        'M~TRF Size~C(0)@n11b@34R(2)|M~Date~C(0)@d1b@34R(2)|M~Time~C(0)@T3b@257L(2)P' & |
+                        '~Template Folder -  Double Click to Open~@s255@'),ALRT(DeleteKey)
+            END 
             TAB('  About  '),USE(?TAB:About)
                 BOX,AT(9,18,459,10),USE(?Box_About),FILL(COLOR:INACTIVECAPTION),LINEWIDTH(1)
                 PROMPT('Find Clean written by Carl Barnes. Inspired by Bruce Johnson. StringTheory code by Geoff Robinson'), |
@@ -246,6 +278,7 @@ LoadBinSettngQueue  PROCEDURE()                 !Load installs in Registry \Bin\
 LoadConfigDirTxt    PROCEDURE(BOOL ParseOnly=0) !Load ConfigDir.Txt with /ConfigDir=xxx paths
 LoadCleanQueue      PROCEDURE()                 !Load 1 Q of files to process from AppData and Cw Installs and ConfigDir
 LoadCleanQFrom1Q    PROCEDURE(AppDataSvQ Add1Q, STRING FromQName, BYTE From123 )  !Load Add1Q into CleanQ
+LoadTplRegistryQueue  PROCEDURE()               !Load Template Registry TRF file sizes
 CleanListPopup      PROCEDURE()                 !Rt Mouse Popup for Clean List
 CleanTheFiles       PROCEDURE(BYTE pQuery)      !Scan CleanQ files and Shrink
 CopyCleanQ2Clip     PROCEDURE()
@@ -276,6 +309,7 @@ WinResize WindowResizeType
        WndPrvCls.InitList(?List:ClarionInstallQ,ClarionInstallQ ,'ClarionInstallQ')   
        WndPrvCls.InitList(?List:BinSettngQ, BinSettngQ ,'BinSettngQ')   
        WndPrvCls.InitList(?List:ConfigDirQ, ConfigDirQ ,'ConfigDirQ')   
+       WndPrvCls.InitList(?List:TplRegistryQ, TplRegistryQ ,'TplRegistryQ')   
              !-WndPrv-
     DOO.WindowInitPretty()            !Make LIST and BOX Look better. Init Window Resize
     DOO.LoadConfigDirTxt()            !Window MUST be open, uses TEXT for getting lines 
@@ -403,6 +437,15 @@ WinResize WindowResizeType
               OF MouseLeft2 ; ExplorerOpen(CfgDirQ:PathBS)
               END
            END
+
+        OF ?List:TplRegistryQ
+           GET(TplRegistryQ,CHOICE(?List:TplRegistryQ))
+           CASE EVENT()
+           OF EVENT:AlertKey
+              IF KEYCODE()=DeleteKey THEN DELETE(TplRegistryQ).
+           OF EVENT:NewSelection
+              IF KEYCODE()=MouseLeft2 THEN ExplorerOpen(TplRegQ:PathBS,TplRegQ:TrfFN).
+           END
            
         END
     END 
@@ -475,6 +518,43 @@ QNdx    LONG,AUTO
          ADD(BinSettngQ,-BinSetQ:VersionNo,BinSetQ:SubFolder,BinSetQ:Root)         
     END !LOOP files
     RETURN
+!================================================================  
+DOO.LoadTplRegistryQueue  PROCEDURE()   !05/04/22 Load TRF file sizes
+TpX     LONG,AUTO
+DrX     LONG,AUTO
+DirQ    QUEUE(FILE:Queue),PRE(DirQ)
+        END ! DirQ:Name  DirQ:ShortName  DirQ:Date  DirQ:Time  DirQ:Size  DirQ:Attrib 
+    CODE
+    FREE(TplRegistryQ) 
+    LOOP TpX = 1 TO RECORDS(BinSettngQ)   !--Keep directories ##.## skip others
+         GET(BinSettngQ,TpX)
+         CLEAR(TplRegistryQ)
+         TplRegQ:SubFolder = BinSetQ:SubFolder
+         TplRegQ:Root    = BinSetQ:Root
+         TplRegQ:PathBS  = CLIP(BinSetQ:Root) & '\Template\win\'
+         TplRegQ:PathTip = TplRegQ:PathBS
+         TplRegQ:VersionNo = BinSetQ:VersionNo
+         
+         FREE(DirQ)                             !12345678901234567890
+         DIRECTORY(DirQ,CLIP(TplRegQ:PathBS) & '\TemplateRegistry.TRF',ff_:NORMAL)      !Clarion 8,9,9.1
+         DIRECTORY(DirQ,CLIP(TplRegQ:PathBS) & '\TemplateRegistry1?.TRF',ff_:NORMAL)    !Clarion 10,11,11.1
+         IF ~RECORDS(DirQ) THEN 
+            CLEAR(DirQ)
+            DirQ:Name='   TRF Not Found'  !'TemplateRegistry??.TRF' 
+            ADD(DirQ)
+         END
+         LOOP DrX = 1 TO RECORDS(DirQ)
+              GET(DirQ,DrX)             !1234567890123456
+              DirQ:Name=UPPER(DirQ:Name)
+              IF DirQ:Name[1:16]='TEMPLATEREGISTRY' THEN DirQ:Name[1:16]='TemplateRegistry'.
+              TplRegQ:TrfFN = DirQ:Name
+              TplRegQ:Date  = DirQ:Date
+              TplRegQ:Time  = DirQ:Time 
+              TplRegQ:Size  = DirQ:Size 
+              ADD(TplRegistryQ) 
+          END !loop DrX
+    END !loop TpX
+    RETURN    
 !================================================================  
 DOO.LoadConfigDirTxt    PROCEDURE(BOOL pParseOnly=0)
 FndCln  CbFindCleanClass    !Use class to Load file
@@ -596,7 +676,8 @@ QNdx    LONG,AUTO
        DOO.LoadCleanQFrom1Q(AppDataSvQ, 'AppData', 1 )   
        DOO.LoadCleanQFrom1Q(BinSettngQ, 'CW Bin' , 2 )
     END
-    DOO.LoadCleanQFrom1Q(ConfigDirQ, 'CfgDir' , 3 ) 
+    DOO.LoadCleanQFrom1Q(ConfigDirQ, 'CfgDir' , 3 )
+    DOO.LoadTplRegistryQueue()
     RETURN 
 !-----------------------------
 DOO.LoadCleanQFrom1Q  PROCEDURE(AppDataSvQ Add1Q, STRING FromQName, BYTE From123 )  !Load Add1Q into CleanQ
@@ -1143,9 +1224,11 @@ SOFTWARE_SoftVelocity EQUATE('SOFTWARE\SoftVelocity')
     END
     RETURN
 !####################################################################################
-ExplorerOpen  Procedure(STRING FolderName)
+ExplorerOpen  Procedure(STRING FolderName,<STRING SelectFN>)
     CODE
-    IF ~EXISTS(FolderName) THEN |
+    IF ~OMITTED(SelectFN) AND SelectFN AND EXISTS(CLIP(FolderName) & SelectFN) THEN   !Assume PathBS
+       RUN('Explorer.exe /select,"' & CLIP(CLIP(FolderName) & SelectFN) &'"')
+    ELSIF ~EXISTS(FolderName) THEN 
         Message('Folder does not exist:||' & FolderName, 'ExplorerOpen')
     ELSE 
         RUN('Explorer.exe /e,"' & CLIP(FolderName) &'"')
