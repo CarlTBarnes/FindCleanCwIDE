@@ -1,8 +1,8 @@
-# FindCleanCwIDE 
+# FindCleanCwIDE
 
 In short ... run this utility once a month to keep the Find dialog opening fast and the drop list in MRU order.
 
-The Editor Find dialog saves your search strings to feed the drop list for reuse. 
+The Editor Find dialog saves your search strings to feed the drop list for reuse.
  The ClarionProperties.XML file stores these strings in `<FindPatterns value=""/>`.
  This is NEVER purged :( so it can grow very large with 1000's of entries that cause the dialog to open slowly.
  This utility will shrink it to fix the problem.
@@ -29,10 +29,10 @@ This tab shows the Clarion installs from the Registry.
 
 ![tab BIN](images/tabBIN.png)
 
-The Config tab is where you can list folders you use with the  Clarion.exe /ConfigDir= switch. 
+The Config tab is where you can list folders you use with the  Clarion.exe /ConfigDir= switch.
  In the below example I am using it to load test files from the TestXML folders.
  These files are included in the TestXmlFile.ZIP.
- 
+
 ![tab Cfg](images/tabConfig.png)
 
 The first tab has a right click popup with options.
@@ -47,6 +47,23 @@ My history shows I searched "Validate" 72 times. Looking by Alpha counts shows o
 
 One reason I wrote this is I thought it might be useful to have code to find all the Clarion Installs and Configurations.
  If you use code in this repo Please let me know how you used it?
+
+## Template Registry Tab
+
+New tab added 5/10/22. The Temnplate Registry TRF file can grow large when you Re-Register templates
+ because the space taken by the old template is not reclaimed nor the TRF file ever shrunk.
+ This tab lets you check the size of the TRF. You can double-click on a row to open Explorer to that TRF file so you can rename or delete it.
+
+Because your 3rd party template size is unknown to me you will have to note the size of the TRF file
+ after you delete it and register all your templates. All I can tell you is the shipping templates in 11.1 are 12 MB. After I do a "Clean TPL Registration" (i.e. delete the TRF) I add a TemplateRegistry.TRF.TXT with Notepad and note the date and size before and after. (Maybe a new feature coming soon.)
+
+I have a Windows Task Scheduler run this FindCleanIDE every month so I can reduce the size of the Find history.
+ This new feature reminds you to check if your TRF file has grown large.
+
+![tab TRF](images/tabTemplateRegistry.png)
+
+In the above example after deleting the Clarion 10 TRF file and registering all the templates (except WB)
+ the  41 MB TRF shrunk to 29 MB which is an 11 MB 27% reduction. 
 
 ## Big Bang Class for StringTheory
 
@@ -74,18 +91,18 @@ To show the many features of my Window Preview class I added it to Find Clean.
  It opens a new widow showing all controls on the Window in a List.
  You can examine PROP's of Controls, Window and SYSTEM. You can resize and restyle controls.
  For a LIST you can view the Format(), all the PROPLIST for one column and the Styles.
- You can see the From Queue design and record data. 
+ You can see the From Queue design and record data.
  You can "Re-Format" the LIST i.e. change the FORMAT string, e.g. to resize columns.
- 
+
 Don't think too hard about it, just click the secret top left button and look at everything, click every button and double on every row.
- All this from 3 lines of code to Include, Declare and Init() my WndPreview class. 
+ All this from 3 lines of code to Include, Declare and Init() my WndPreview class.
 
 ![Prv](images/wndPreview.png)
 
 Below is a capture of the "Resizer". It also allows changing many other properties like Font and Colors.
  Below I'm resizing the List by setting the number of Items so it has no partial rows. I also bumped up the line height to 9.
-  So 5 items and 9 line height works out to a List height of 118. This is done on the live window so is perfect. 
- 
+  So 5 items and 9 line height works out to a List height of 118. This is done on the live window so is perfect.
+
 ![Prv](images/wndPrvResize.png)
 
 The LIST button shows the Format() split into lines so you can see the many attributes in columns.
