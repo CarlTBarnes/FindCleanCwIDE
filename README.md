@@ -60,10 +60,16 @@ Because your 3rd party template size is unknown to me you will have to note the 
 I have a Windows Task Scheduler run this FindCleanIDE every month so I can reduce the size of the Find history.
  This new feature reminds you to check if your TRF file has grown large.
 
+New 5/13/22 now writes a history of TRF file sizes to file TRF_History_Log.CSV
+ and a new button "View History" was added.
+ This CSV file can be opened in Excel and sorted or filtered.
+ You can add your own notes and other columns if you wish.
+ This history helps you have an idea of how big the file has been and track growth.
+
 ![tab TRF](images/tabTemplateRegistry.png)
 
 In the above example after deleting the Clarion 10 TRF file and registering all the templates (except WB)
- the  41 MB TRF shrunk to 29 MB which is an 11 MB 27% reduction. 
+ the  41 MB TRF shrunk to 29 MB which is an 11 MB 27% reduction.
 
 ## Big Bang Class for StringTheory
 

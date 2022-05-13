@@ -25,6 +25,7 @@
 !It finds <FindPatterns value="111<C3BF>222<C3BF>333<C3BF>444" /> and shrinks
 !----------------------------------------------------------------------------------
 ! 05/09/22 - Added Template Registry Tab to monitor growth of the TRF file as noted in https://web.cwhandy.ca/april2022.html under April 2
+! 05/13/22 - Log TRF File Size, Date and Time to TRF_History_Log.CSV so can know how large it has been in the past
 !---------------------------------------------------------------------------------- 
 !endRegion License and Comments
   PROGRAM
@@ -50,8 +51,9 @@ CleanViewPatterns   PROCEDURE(STRING ClaPropFullName, STRING ltPatternsElement)
 CleanViewSelectFile PROCEDURE(<STRING pOpenFileName>)  !FileDialog to Pick the file to view
 
 DB                  PROCEDURE(STRING OutDebugMessage) 
-DBClear             PROCEDURE() 
-ExplorerOpen        PROCEDURE(STRING FolderName,<STRING SelectFileName>)
+DBClear             PROCEDURE()
+Err4Msg             PROCEDURE(Byte NoCRLF=0),STRING   !Format Error functions for Message or (1)=Log with no CrLf
+ExplorerOpen        PROCEDURE(STRING FolderName,<STRING SelectFileName>)    !Run Explorer .exe and open Folder, optionally /Select,File
 NotepadOpen         PROCEDURE(STRING FileName)
 GetRegistryInstallsOfCW  PROCEDURE(QUEUE ClarionQ, *STRING ClaQ_RootPath, <*STRING ClaQ_ClarionName>, <*DECIMAL ClaQ_VersioNo>)
 GetFileDateTimeSize PROCEDURE(STRING inFileName,<*LONG outDate>,<*LONG outTime>,<*LONG outSize>,<*STRING outStamp>),BOOL
@@ -152,7 +154,15 @@ PathTip        STRING(256)       !TplRegQ:PathTip
 VersionNo      DECIMAL(5,2)      !TplRegQ:VersionNo  !Version Number for Sort 
 Root           STRING(128)       !TplRegQ:Root
             END
-            
+TrfHistoryQ QUEUE(TplRegistryQ),PRE(TrfHisQ)    !Track what's been logged to history
+        END
+TrfHistoryLog_FN    EQUATE('TRF_History_Log.CSV')
+TrfHistoryLog FILE,DRIVER('DOS'),NAME(TrfHistoryLog_FN),PRE(TrfLog),CREATE
+          RECORD
+CsvLine     CSTRING(1024)       !TrfLog:CsvLine
+          END
+        END
+
 Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml'),AT(,,476,203),GRAY,IMM,SYSTEM, |
             ICON('FindCln.ico'),FONT('Segoe UI',10,,FONT:regular),RESIZE
         SHEET,AT(3,3,470,197),USE(?Sheet1)
@@ -255,7 +265,9 @@ Window WINDOW('Clarion IDE Find Patterns Clean / Shrink in ClarionProperties.xml
                 PROMPT('The cure to shrink the TRF is delete the TRF file (or rename it), then regis' & |
                         'ter All the Templates. The shipping templates take 12 MB plus 3rd party can' & |
                         ' grow that 2X-4X+. When size grows by 50% it would be a good point to shrin' & |
-                        'k the file. YMMV'),AT(9,50,455,17),USE(?PROMPT:TPLReg:FYI2),TRN
+                        'k the file. YMMV'),AT(9,50,410,17),USE(?PROMPT:TPLReg:FYI2),TRN
+                BUTTON('View<0Dh,0Ah>History'),AT(433,48,34,20),USE(?TrfHistoryViewBtn),SKIP, |
+                        TIP('TRF History is logged to TRF_History_Log.CSV')                        
                 LIST,AT(9,72,458,123),USE(?List:TplRegistryQ),VSCROLL,FROM(TplRegistryQ), |
                         FORMAT('45L(2)|FM~Folder~C(0)@s255@90L(2)|M~Registry File Name~@s255@50R(2)|' & |
                         'M~TRF Size~C(0)@n11b@34R(2)|M~Date~C(0)@d1b@34R(2)|M~Time~C(0)@T3b@257L(2)P' & |
@@ -383,6 +395,7 @@ WinResize WindowResizeType
            ?ConfigDirTxtReloadBtn{PROP:Tip}='Clear Editted Text and Reload ... Losing any edits' & |
                                             '<13,10,13,10>Press ReLoad button to load Editted Text paths'
            DISPLAY ; SELECT(?ConfigDirTxt_TEXT)
+        OF ?TrfHistoryViewBtn       ; ExplorerOpen(LongPath()&'\',TrfHistoryLog_FN)
         END
 
         CASE FIELD()
@@ -446,7 +459,7 @@ WinResize WindowResizeType
            OF EVENT:NewSelection
               IF KEYCODE()=MouseLeft2 THEN ExplorerOpen(TplRegQ:PathBS,TplRegQ:TrfFN).
            END
-           
+
         END
     END 
     SettingsCls.SaveAll()
@@ -523,24 +536,29 @@ DOO.LoadTplRegistryQueue  PROCEDURE()   !05/04/22 Load TRF file sizes
 TpX     LONG,AUTO
 DrX     LONG,AUTO
 DirQ    QUEUE(FILE:Queue),PRE(DirQ)
-        END ! DirQ:Name  DirQ:ShortName  DirQ:Date  DirQ:Time  DirQ:Size  DirQ:Attrib 
+        END ! DirQ:Name  DirQ:ShortName  DirQ:Date  DirQ:Time  DirQ:Size  DirQ:Attrib
+NewHistoryQ QUEUE(TplRegistryQ),PRE(NewHisQ)    !TRF file or size not added History on prior call
+        END
+LogDate LONG,AUTO
+LogTime LONG,AUTO
     CODE
-    FREE(TplRegistryQ) 
+    FREE(TplRegistryQ)
     LOOP TpX = 1 TO RECORDS(BinSettngQ)   !--Keep directories ##.## skip others
          GET(BinSettngQ,TpX)
          CLEAR(TplRegistryQ)
          TplRegQ:SubFolder = BinSetQ:SubFolder
-         TplRegQ:Root    = BinSetQ:Root
-         TplRegQ:PathBS  = CLIP(BinSetQ:Root) & '\Template\win\'
-         TplRegQ:PathTip = TplRegQ:PathBS
+         TplRegQ:Root      = BinSetQ:Root
+         TplRegQ:PathBS    = CLIP(BinSetQ:Root) & '\Template\win\'
+         TplRegQ:PathTip   = TplRegQ:PathBS
          TplRegQ:VersionNo = BinSetQ:VersionNo
-         
+
          FREE(DirQ)                             !12345678901234567890
          DIRECTORY(DirQ,CLIP(TplRegQ:PathBS) & '\TemplateRegistry.TRF',ff_:NORMAL)      !Clarion 8,9,9.1
          DIRECTORY(DirQ,CLIP(TplRegQ:PathBS) & '\TemplateRegistry1?.TRF',ff_:NORMAL)    !Clarion 10,11,11.1
-         IF ~RECORDS(DirQ) THEN 
+         SORT(DirQ,DirQ:Name)
+         IF ~RECORDS(DirQ) THEN
             CLEAR(DirQ)
-            DirQ:Name='   TRF Not Found'  !'TemplateRegistry??.TRF' 
+            DirQ:Name='   TRF Not Found'  !'TemplateRegistry??.TRF'
             ADD(DirQ)
          END
          LOOP DrX = 1 TO RECORDS(DirQ)
@@ -549,13 +567,65 @@ DirQ    QUEUE(FILE:Queue),PRE(DirQ)
               IF DirQ:Name[1:16]='TEMPLATEREGISTRY' THEN DirQ:Name[1:16]='TemplateRegistry'.
               TplRegQ:TrfFN = DirQ:Name
               TplRegQ:Date  = DirQ:Date
-              TplRegQ:Time  = DirQ:Time 
-              TplRegQ:Size  = DirQ:Size 
-              ADD(TplRegistryQ) 
+              TplRegQ:Time  = DirQ:Time
+              TplRegQ:Size  = DirQ:Size
+              ADD(TplRegistryQ)
+
+              IF ~DirQ:Name[1] THEN CYCLE. !Skip "   TRF Not Found"
+              TrfHistoryQ = TplRegistryQ
+              GET(TrfHistoryQ, TrfHisQ:Size, TrfHisQ:TrfFN, TrfHisQ:PathBS)  !File with same Size added to History Log previously?
+              IF ~ERRORCODE() THEN CYCLE.
+              NewHistoryQ = TplRegistryQ
+              ADD(NewHistoryQ)
           END !loop DrX
     END !loop TpX
-    RETURN    
-!================================================================  
+    DO LogTrfHistoryRtn
+    RETURN
+
+LogTrfHistoryRtn ROUTINE                !05/13/22 Keep History Log in CSV of past TRF sizes
+    IF ~RECORDS(NewHistoryQ) THEN EXIT.
+RetryShareLabel:
+    SHARE(TrfHistoryLog)
+    CASE ERRORCODE()
+    OF 0    !Opened w/o error
+    OF 2    !File Not Found, then create it
+         CREATE(TrfHistoryLog)
+         IF ~ERRORCODE() THEN SHARE(TrfHistoryLog).
+         IF ERRORCODE() THEN
+            Message('CREATE(TrfHistoryLog) Failed|Name=' & NAME(TrfHistoryLog) & Err4Msg(),'TRF History Logging')
+            EXIT
+         END
+         TrfLog:CsvLine='Log Date,Log Time,Version,TRF File Name,TRF Size ,File Date,File Time,Template Folder,Notes<13,10>'
+         ADD(TrfHistoryLog,LEN(TrfLog:CsvLine))
+    ELSE    !some other error, probably 5 because CSV is open in Excel
+        CASE Message('SHARE(TrfHistoryLog) Failed -- Name=' & NAME(TrfHistoryLog) & |
+                     '||Unable to log TRF size history.' & |
+                     CHOOSE(ERRORCODE()<>5,'','||If the file is open in Excel you must close it.') & |
+                     Err4Msg() ,|
+                     'TRF History Logging',ICON:Asterisk,BUTTON:Retry + BUTTON:Cancel, BUTTON:Cancel)
+        OF BUTTON:Retry ; GOTO RetryShareLabel:
+        END
+        EXIT
+    END
+    LogDate = TODAY() ; LogTime = CLOCK()
+    LOOP TpX = 1 TO RECORDS(NewHistoryQ)
+         GET(NewHistoryQ,TpX)
+         TplRegistryQ = NewHistoryQ
+         TrfLog:CsvLine = FORMAT(LogDate,@d02) & |
+                     ','& FORMAT(LogTime,@t04) & |
+                    ',"'& CLIP(TplRegQ:SubFolder) &'"'& |
+                    ',"'& CLIP(TplRegQ:TrfFN) &'"'& |
+                     ','& TplRegQ:Size & |
+                     ','& FORMAT(TplRegQ:Date,@d02) & |
+                     ','& FORMAT(TplRegQ:Time,@t04) & |
+                    ',"'& TplRegQ:PathBS &'"' & |
+                    '<13,10>'
+        ADD(TrfHistoryLog,LEN(TrfLog:CsvLine))
+        TrfHistoryQ = NewHistoryQ ; ADD(TrfHistoryQ)    !Note as logged
+    END
+    CLOSE(TrfHistoryLog)
+    EXIT
+!================================================================
 DOO.LoadConfigDirTxt    PROCEDURE(BOOL pParseOnly=0)
 FndCln  CbFindCleanClass    !Use class to Load file
 LineNo  LONG 
@@ -1298,6 +1368,19 @@ DBClear PROCEDURE()
 DbgClear CSTRING('DBGVIEWCLEAR')    !Message to Clear the buffer. Must UPPER and first i.e. without a Prefix
     CODE 
     OutputDebugString(DbgClear)     !Cannot have Prefix, must be first .. so call API directly
+!==============================================
+Err4Msg  PROCEDURE(Byte NoCRLF=0)!,STRING 
+  CODE
+  IF ~ERRORCODE() THEN RETURN ''.   
+  IF ~NoCRLF THEN 
+     RETURN '<13,10><13,10>Error Code: ' & ERRORCODE()&' '&ERROR() & |
+             CHOOSE(~FILEERRORCODE(),'','<13,10>Driver Error: ' & FILEERRORCODE()&' '&FILEERROR() ) & | 
+             CHOOSE(~ERRORFILE(),'','<13,10>File Name: ' & ERRORFILE() )
+  END 
+  !NoCRLF<>0 is 1 line format for use by logging
+  RETURN ERRORCODE()&' '&ERROR() & |     ! {148}
+         CHOOSE(~FILEERRORCODE(),'',' [Driver ' & FILEERRORCODE()&' '&FILEERROR() &']' ) & | 
+         CHOOSE(~ERRORFILE(),'',' {{' & ERRORFILE() & '}' ) 
 !============================================== 
 ListHeaderColor PROCEDURE(LONG ListFEQ)
     CODE !With Manifest and Windows 10 the header is White like Data so Color it 
